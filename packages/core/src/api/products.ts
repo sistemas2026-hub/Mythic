@@ -10,6 +10,10 @@ export interface ProductQueryOptions {
   search?: string;
   /** Limita a una familia de artículos (Perfumes, Envases, Esencias…). */
   familyId?: string;
+  /** Limita a un tipo (Árabe, Diseñador…). */
+  categoryId?: string;
+  /** Solo los que aún no tienen tipo asignado. */
+  untyped?: boolean;
   /** Solo artículos vendibles en el POS (excluye insumos internos). */
   sellableOnly?: boolean;
 }
@@ -28,6 +32,8 @@ export async function listProductsWithStock(
     .order('name', { ascending: true });
 
   if (options.familyId) query = query.eq('family_id', options.familyId);
+  if (options.categoryId) query = query.eq('category_id', options.categoryId);
+  if (options.untyped) query = query.is('category_id', null);
   if (options.sellableOnly) query = query.eq('is_sellable', true);
 
   const search = options.search?.trim();

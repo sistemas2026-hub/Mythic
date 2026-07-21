@@ -16,39 +16,13 @@ import { createFamily, listFamiliesWithStock, type FamilyWithStock } from '@myth
 import { useAuth } from '../../../src/lib/auth';
 import { supabase } from '../../../src/lib/supabase';
 import { EmptyState, Loading, PrimaryButton } from '../../../src/components/ui';
+import { CountCard } from '../../../src/components/CountCard';
 import { colors, fonts, radius, spacing } from '../../../src/theme';
 
 /** "4 artículos" para bienes tangibles, "3 insumos" para consumibles. */
 function itemNoun(kind: FamilyWithStock['kind'], count: number): string {
   if (kind === 'insumo') return count === 1 ? 'insumo' : 'insumos';
   return count === 1 ? 'artículo' : 'artículos';
-}
-
-function FamilyCard({ family, onPress }: { family: FamilyWithStock; onPress: () => void }) {
-  const alerts: string[] = [];
-  if (family.low > 0) alerts.push(`${family.low} bajo`);
-  if (family.out > 0) alerts.push(`${family.out} agotado${family.out === 1 ? '' : 's'}`);
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-    >
-      <Text style={styles.cardLabel}>{family.name.toUpperCase()}</Text>
-      <Text style={styles.cardCount}>{family.items}</Text>
-      <Text style={styles.cardSub}>{itemNoun(family.kind, family.items)}</Text>
-      {alerts.length > 0 ? (
-        <View style={[styles.pill, family.out > 0 ? styles.pillRed : styles.pillAmber]}>
-          <Text
-            style={[styles.pillText, family.out > 0 ? styles.pillTextRed : styles.pillTextAmber]}
-          >
-            {alerts.join(' · ').toUpperCase()}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
 }
 
 export default function InventoryFamilies() {
@@ -111,7 +85,14 @@ export default function InventoryFamilies() {
           <View style={styles.grid}>
             {families.map((f) => (
               <View key={f.id} style={styles.cell}>
-                <FamilyCard family={f} onPress={() => router.push(`/(app)/inventory/${f.id}`)} />
+                <CountCard
+                  label={f.name}
+                  count={f.items}
+                  noun={itemNoun(f.kind, f.items)}
+                  low={f.low}
+                  out={f.out}
+                  onPress={() => router.push(`/(app)/inventory/${f.id}`)}
+                />
               </View>
             ))}
           </View>

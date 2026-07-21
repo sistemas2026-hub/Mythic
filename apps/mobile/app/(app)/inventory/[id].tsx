@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createArticleWithStock,
@@ -21,6 +21,7 @@ import {
   getFamily,
   listCategories,
   listProductsWithStock,
+  listTypesWithStock,
   setStockLevels,
   stockStatus,
   updateProduct,
@@ -30,8 +31,12 @@ import {
 import { useAuth } from '../../../src/lib/auth';
 import { supabase } from '../../../src/lib/supabase';
 import { EmptyState, Loading, PrimaryButton, StockBadge } from '../../../src/components/ui';
+import { CountCard } from '../../../src/components/CountCard';
 import { ScreenHeader } from '../../../src/components/ScreenHeader';
 import { colors, fonts, radius, spacing } from '../../../src/theme';
+
+/** Valor del parámetro `type` para los artículos sin tipo asignado. */
+const UNTYPED = 'sin-tipo';
 
 const UNITS: { value: ProductUnit; label: string }[] = [
   { value: 'unidad', label: 'Unidad' },
@@ -52,7 +57,8 @@ const EMPTY_FORM = {
 };
 
 export default function FamilyDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, type } = useLocalSearchParams<{ id: string; type?: string }>();
+  const router = useRouter();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const storeId = profile?.store_id ?? null;
@@ -73,11 +79,25 @@ export default function FamilyDetail() {
   const family = familyQuery.data;
   /** Los tipos solo aplican a lo que se vende (perfumes). */
   const usesTypes = family ? !family.is_supply : false;
+  /** Con tipos y sin uno elegido, la pantalla muestra los sub-módulos. */
+  const showingTypes = usesTypes && !type;
 
   const itemsQuery = useQuery({
-    queryKey: ['family-items', id, storeId, search],
-    queryFn: () => listProductsWithStock(supabase, storeId as string, { familyId: id, search }),
-    enabled: !!storeId && !!id,
+    queryKey: ['family-items', id, storeId, search, type],
+    queryFn: () =>
+      listProductsWithStock(supabase, storeId as string, {
+        familyId: id,
+        search,
+        categoryId: type && type !== UNTYPED ? type : undefined,
+        untyped: type === UNTYPED,
+      }),
+    enabled: !!storeId && !!id && !showingTypes,
+  });
+
+  const breakdownQuery = useQuery({
+    queryKey: ['family-types', id, storeId],
+    queryFn: () => listTypesWithStock(supabase, storeId as string, id),
+    enabled: !!storeId && !!id && showingTypes,
   });
 
   const typesQuery = useQuery({
@@ -101,15 +121,18 @@ export default function FamilyDetail() {
         minQuantity: String(inv?.min_quantity ?? 0),
       });
     } else if (editing === 'new') {
-      setForm(EMPTY_FORM);
+      // Si estamos dentro de un tipo, el artículo nuevo nace con ese tipo.
+      const preset = type && type !== UNTYPED ? type : null;
+      setForm({ ...EMPTY_FORM, categoryId: preset });
     }
     setError(null);
     setShowNewType(false);
     setNewType('');
-  }, [editing]);
+  }, [editing, type]);
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['family-items'] });
+    void queryClient.invalidateQueries({ queryKey: ['family-types'] });
     void queryClient.invalidateQueries({ queryKey: ['families'] });
     void queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
     void queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -195,12 +218,68 @@ export default function FamilyDetail() {
 
   const items = itemsQuery.data ?? [];
   const types = typesQuery.data ?? [];
+  const breakdown = breakdownQuery.data;
+  const selectedType = type && type !== UNTYPED ? types.find((t) => t.id === type) : undefined;
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+  // Sub-módulos por tipo: un recuadro con el nombre y cuántos perfumes hay.
+  const typesView = (
+    <>
+      <ScreenHeader title={family?.name ?? 'Familia'} subtitle="Elige un tipo" />
+      {breakdownQuery.isLoading ? (
+        <Loading label="Cargando tipos…" />
+      ) : (
+        <ScrollView contentContainerStyle={styles.typeBody}>
+          <View style={styles.typeGrid}>
+            {(breakdown?.types ?? []).map((t) => (
+              <View key={t.id} style={styles.typeCell}>
+                <CountCard
+                  label={t.name}
+                  count={t.items}
+                  noun={t.items === 1 ? 'perfume' : 'perfumes'}
+                  low={t.low}
+                  out={t.out}
+                  onPress={() => router.push(`/(app)/inventory/${id}?type=${t.id}`)}
+                />
+              </View>
+            ))}
+            {breakdown && breakdown.untyped.items > 0 ? (
+              <View style={styles.typeCell}>
+                <CountCard
+                  label="Sin tipo"
+                  count={breakdown.untyped.items}
+                  noun={breakdown.untyped.items === 1 ? 'perfume' : 'perfumes'}
+                  low={breakdown.untyped.low}
+                  out={breakdown.untyped.out}
+                  onPress={() => router.push(`/(app)/inventory/${id}?type=${UNTYPED}`)}
+                />
+              </View>
+            ) : null}
+          </View>
+
+          <Pressable
+            onPress={() => setEditing('new')}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.addBox, pressed && styles.rowPressed]}
+          >
+            <Text style={styles.addBoxText}>+ AGREGAR PERFUME</Text>
+          </Pressable>
+
+          <Text style={styles.hint}>
+            Cada recuadro agrupa los perfumes de ese tipo. Los tipos nuevos se crean desde el
+            formulario del artículo.
+          </Text>
+        </ScrollView>
+      )}
+    </>
+  );
+
+  const listView = (
+    <>
       <ScreenHeader
-        title={family?.name ?? 'Familia'}
-        subtitle={family?.kind === 'insumo' ? 'Insumo' : 'Artículo'}
+        title={selectedType?.name ?? (type === UNTYPED ? 'Sin tipo' : (family?.name ?? 'Familia'))}
+        subtitle={
+          usesTypes ? (family?.name ?? '') : family?.kind === 'insumo' ? 'Insumo' : 'Artículo'
+        }
       />
 
       <View style={styles.searchWrap}>
@@ -261,6 +340,12 @@ export default function FamilyDetail() {
       <View style={styles.footer}>
         <PrimaryButton label="Agregar artículo" onPress={() => setEditing('new')} />
       </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {showingTypes ? typesView : listView}
 
       <Modal
         visible={editing !== null}
@@ -457,6 +542,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.inkSoft,
   },
+  typeBody: { padding: spacing.lg, gap: spacing.md },
+  typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  typeCell: { flexGrow: 1, flexBasis: '47%' },
+  addBox: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface2,
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+  },
+  addBoxText: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, color: colors.inkSoft },
+  hint: { fontSize: 12, color: colors.muted, lineHeight: 18 },
   list: { padding: spacing.lg, gap: spacing.sm, flexGrow: 1 },
   row: {
     flexDirection: 'row',
