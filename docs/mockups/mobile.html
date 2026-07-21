@@ -1,0 +1,706 @@
+<title>Mythic Perfumería — Mockups móvil (Fase 1)</title>
+<style>
+  :root {
+    --canvas: #f7f6f3;
+    --surface: #ffffff;
+    --surface-2: #f9f9f8;
+    --ink: #111111;
+    --ink-soft: #2f3437;
+    --muted: #787774;
+    --border: #eaeaea;
+    --amber-bg: #fbf3db;
+    --amber-ink: #956400;
+    --green-bg: #edf3ec;
+    --green-ink: #346538;
+    --red-bg: #fdebec;
+    --red-ink: #9f2f2d;
+    --blue-bg: #e1f3fe;
+    --blue-ink: #1f6c9f;
+
+    --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --serif: Georgia, "Times New Roman", "Playfair Display", serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+
+    --gallery-bg: #f2f0eb;
+    --gallery-ink: #2f3437;
+    --gallery-muted: #787774;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --gallery-bg: #1a1917;
+      --gallery-ink: #e8e6e1;
+      --gallery-muted: #9a978f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --gallery-bg: #1a1917;
+    --gallery-ink: #e8e6e1;
+    --gallery-muted: #9a978f;
+  }
+  :root[data-theme="light"] {
+    --gallery-bg: #f2f0eb;
+    --gallery-ink: #2f3437;
+    --gallery-muted: #787774;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--gallery-bg);
+    color: var(--gallery-ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  .masthead { margin-bottom: 48px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gallery-muted);
+    margin: 0 0 14px;
+  }
+  .masthead h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(30px, 5vw, 46px);
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+  .masthead p {
+    max-width: 60ch;
+    margin: 0;
+    color: var(--gallery-muted);
+    font-size: 15px;
+  }
+  .masthead .note {
+    margin-top: 18px;
+    font-size: 13px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--muted);
+    display: inline-block;
+  }
+
+  .frames {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 40px 32px;
+    align-items: start;
+  }
+
+  .frame-label {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 16px;
+  }
+  .frame-label .idx {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gallery-muted);
+  }
+  .frame-label h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 21px;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .frame-label .role {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--amber-ink);
+    background: var(--amber-bg);
+    padding: 2px 8px;
+    border-radius: 9999px;
+    margin-left: auto;
+  }
+
+  /* ---------- Device ---------- */
+  .device {
+    width: 100%;
+    max-width: 340px;
+    margin: 0 auto;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 40px;
+    padding: 10px;
+  }
+  .screen {
+    background: var(--canvas);
+    border-radius: 30px;
+    overflow: hidden;
+    height: 700px;
+    display: flex;
+    flex-direction: column;
+    color: var(--ink);
+    position: relative;
+  }
+  .statusbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 22px 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+  .statusbar .dots { display: flex; gap: 4px; align-items: center; }
+  .statusbar .bar { width: 3px; border-radius: 1px; background: var(--ink); }
+
+  .appbar {
+    padding: 8px 22px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--canvas);
+  }
+  .appbar .title {
+    font-family: var(--serif);
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .appbar .sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 2px 0 0;
+  }
+  .appbar .spacer { margin-left: auto; }
+
+  .body {
+    flex: 1;
+    overflow: hidden;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .icon { width: 20px; height: 20px; display: inline-block; vertical-align: middle; color: var(--ink); }
+  .icon-btn {
+    width: 38px; height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    display: grid; place-items: center;
+    color: var(--ink-soft);
+  }
+
+  /* search */
+  .search {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 11px 13px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  /* product rows (POS) */
+  .list { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+  .prow {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 12px;
+  }
+  .thumb {
+    width: 44px; height: 54px; flex: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-2);
+    display: grid; place-items: center;
+    color: var(--muted);
+  }
+  .prow .info { min-width: 0; flex: 1; }
+  .prow .name {
+    font-size: 13.5px; font-weight: 600; color: var(--ink);
+    margin: 0 0 2px; line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .prow .meta {
+    font-family: var(--mono);
+    font-size: 11px; color: var(--muted);
+    margin: 0;
+  }
+  .prow .price {
+    font-size: 13.5px; font-weight: 600; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .add {
+    width: 32px; height: 32px; flex: none;
+    border-radius: 8px; border: none;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px; letter-spacing: 0.05em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 9999px;
+  }
+  .badge.ok { background: var(--green-bg); color: var(--green-ink); }
+  .badge.low { background: var(--amber-bg); color: var(--amber-ink); }
+  .badge.out { background: var(--red-bg); color: var(--red-ink); }
+
+  /* cart summary */
+  .cart {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 14px;
+  }
+  .cart .line {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; color: var(--ink-soft);
+    padding: 3px 0;
+  }
+  .cart .line .qty { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .cart .total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-top: 1px solid var(--border);
+    margin-top: 10px; padding-top: 12px;
+  }
+  .cart .total .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .cart .total .amt { font-family: var(--serif); font-size: 26px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+  .cta {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; border: none; cursor: default;
+    background: var(--ink); color: #fff;
+    font-size: 15px; font-weight: 600;
+    padding: 15px; border-radius: 8px;
+    margin-top: 12px;
+  }
+  .cta.ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--border); }
+
+  /* bottom nav */
+  .tabbar {
+    display: flex; justify-content: space-around; align-items: center;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 10px 8px 16px;
+  }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); }
+  .tab.active { color: var(--ink); }
+  .tab span { font-size: 9.5px; font-family: var(--mono); letter-spacing: 0.03em; text-transform: uppercase; }
+
+  /* KPI cards (dashboard) */
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 14px;
+  }
+  .kpi .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .kpi .v { font-family: var(--serif); font-size: 25px; letter-spacing: -0.02em; margin: 0; font-variant-numeric: tabular-nums; }
+  .kpi .d { font-family: var(--mono); font-size: 10.5px; margin: 5px 0 0; }
+  .kpi .d.up { color: var(--green-ink); }
+  .kpi .d.down { color: var(--red-ink); }
+  .kpi.wide { grid-column: 1 / -1; }
+
+  .chart { display: flex; align-items: flex-end; gap: 7px; height: 88px; margin-top: 6px; }
+  .chart .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .chart .col .b { width: 100%; background: var(--ink); border-radius: 3px 3px 0 0; }
+  .chart .col.soft .b { background: #d9d7d1; }
+  .chart .col .lb { font-family: var(--mono); font-size: 9px; color: var(--muted); }
+
+  .section-h {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin: 2px 0 2px;
+  }
+  .section-h .t { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .section-h .a { font-size: 11px; color: var(--amber-ink); }
+
+  /* login */
+  .login {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+    padding: 0 26px; gap: 8px;
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(149,100,0,0.04), transparent 60%),
+      var(--canvas);
+  }
+  .brand { text-align: center; margin-bottom: 26px; }
+  .brand .mark {
+    width: 54px; height: 54px; margin: 0 auto 16px;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface);
+    display: grid; place-items: center;
+    color: var(--ink);
+  }
+  .brand .word {
+    font-family: var(--serif);
+    font-size: 30px; letter-spacing: 0.04em;
+    margin: 0; line-height: 1;
+  }
+  .brand .tag {
+    font-family: var(--mono);
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--muted); margin: 8px 0 0;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
+  .field label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .field .input {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); padding: 12px 13px;
+    font-size: 14px; color: var(--ink-soft);
+  }
+  .field .input .ph { color: var(--muted); }
+  .login .foot { text-align: center; font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .caption {
+    font-family: var(--mono);
+    font-size: 11px; color: var(--gallery-muted);
+    margin: 14px auto 0; text-align: center; max-width: 320px;
+    line-height: 1.5;
+  }
+
+  .legend {
+    margin-top: 64px; padding-top: 28px;
+    border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+  }
+  .legend h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gallery-muted); margin: 0 0 8px; }
+  .legend p { margin: 0; font-size: 13px; color: var(--gallery-muted); }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <p class="eyebrow">Mythic · Perfumería — Fase 1 · Diseño</p>
+    <h1>App móvil nativa · Punto de venta e inventario</h1>
+    <p>
+      Bocetos de las pantallas principales para el equipo de tienda (administrador y
+      vendedores). Estética editorial minimalista: monocromo cálido, tipografía serif
+      de titulares, superficies planas y color reservado solo para estados de stock.
+    </p>
+    <div class="note">
+      Prototipo visual estático — datos de ejemplo. La moneda y los precios son
+      configurables. Próximo: pantallas de tienda online (cliente) y dashboard web.
+    </div>
+  </header>
+
+  <div class="frames">
+
+    <!-- ============ 1. LOGIN ============ -->
+    <section>
+      <div class="frame-label">
+        <span class="idx">01</span>
+        <h2>Ingreso</h2>
+        <span class="role">Staff</span>
+      </div>
+      <div class="device">
+        <div class="screen">
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="dots">
+              <span class="bar" style="height:7px"></span>
+              <span class="bar" style="height:10px"></span>
+              <span class="bar" style="height:13px"></span>
+              <span>100%</span>
+            </span>
+          </div>
+          <div class="login">
+            <div class="brand">
+              <div class="mark">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <path d="M9 3h6v3l2 3v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V9l2-3V3Z"/>
+                  <path d="M7 12h10"/>
+                </svg>
+              </div>
+              <p class="word">MYTHIC</p>
+              <p class="tag">Perfumería</p>
+            </div>
+            <div class="field">
+              <label>Correo</label>
+              <div class="input">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                <span class="ph">vendedor@mythic.co</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Contraseña</label>
+              <div class="input">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <span>••••••••</span>
+              </div>
+            </div>
+            <button class="cta">Ingresar</button>
+            <p class="foot">Acceso por rol: administrador · vendedor</p>
+          </div>
+          <div class="tabbar" style="visibility:hidden"><div class="tab"><span>.</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 2. POS / VENTA ============ -->
+    <section>
+      <div class="frame-label">
+        <span class="idx">02</span>
+        <h2>Punto de venta</h2>
+        <span class="role">MVP</span>
+      </div>
+      <div class="device">
+        <div class="screen">
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="dots"><span class="bar" style="height:7px"></span><span class="bar" style="height:10px"></span><span class="bar" style="height:13px"></span><span>100%</span></span>
+          </div>
+          <div class="appbar">
+            <div>
+              <h1 class="title">Venta</h1>
+              <p class="sub">Sucursal Centro · Caja 1</p>
+            </div>
+            <div class="spacer"></div>
+            <div class="icon-btn">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 7 5 5h14l1 2M6 7v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M10 11v5M14 11v5"/></svg>
+            </div>
+          </div>
+          <div class="body">
+            <div class="search">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <span>Buscar o escanear código…</span>
+            </div>
+            <div class="list">
+              <div class="prow">
+                <div class="thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3h6v3l2 3v11H7V9l2-3V3Z"/></svg></div>
+                <div class="info">
+                  <p class="name">Dior Sauvage EDP 100ml</p>
+                  <p class="meta">Dior · 7501234000017</p>
+                </div>
+                <span class="price">$459.900</span>
+                <button class="add"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+              </div>
+              <div class="prow">
+                <div class="thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3h6v3l2 3v11H7V9l2-3V3Z"/></svg></div>
+                <div class="info">
+                  <p class="name">Good Girl EDP 80ml</p>
+                  <p class="meta">Carolina Herrera · 8411061000021</p>
+                </div>
+                <span class="price">$389.000</span>
+                <button class="add"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+              </div>
+              <div class="prow">
+                <div class="thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3h6v3l2 3v11H7V9l2-3V3Z"/></svg></div>
+                <div class="info">
+                  <p class="name">1 Million EDT 100ml</p>
+                  <p class="meta">Paco Rabanne · 3349668000038</p>
+                </div>
+                <span class="price">$329.900</span>
+                <button class="add"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+              </div>
+            </div>
+            <div class="cart" style="margin-top:auto">
+              <div class="line"><span><span class="qty">2 ×</span> Bleu de Chanel EDP</span><span style="font-variant-numeric:tabular-nums">$1.038.000</span></div>
+              <div class="line"><span><span class="qty">1 ×</span> Libre EDP 90ml</span><span style="font-variant-numeric:tabular-nums">$429.000</span></div>
+              <div class="total">
+                <span class="lbl">Total · 3 art.</span>
+                <span class="amt">$1.467.000</span>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tab active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 7h12l-1 12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span>Venta</span></div>
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8 12 4l8 4-8 4-8-4Z"/><path d="M4 8v8l8 4 8-4V8"/></svg><span>Stock</span></div>
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 4v16M4 9h4"/></svg><span>Pedidos</span></div>
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 19V9M12 19V5M19 19v-7"/></svg><span>Reportes</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 3. INVENTARIO ============ -->
+    <section>
+      <div class="frame-label">
+        <span class="idx">03</span>
+        <h2>Inventario</h2>
+        <span class="role">MVP</span>
+      </div>
+      <div class="device">
+        <div class="screen">
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="dots"><span class="bar" style="height:7px"></span><span class="bar" style="height:10px"></span><span class="bar" style="height:13px"></span><span>100%</span></span>
+          </div>
+          <div class="appbar">
+            <div>
+              <h1 class="title">Inventario</h1>
+              <p class="sub">248 referencias · Sucursal Centro</p>
+            </div>
+            <div class="spacer"></div>
+            <div class="icon-btn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg></div>
+          </div>
+          <div class="body">
+            <div class="search">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <span>Filtrar por nombre, marca o código…</span>
+            </div>
+            <div class="list">
+              <div class="prow">
+                <div class="thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3h6v3l2 3v11H7V9l2-3V3Z"/></svg></div>
+                <div class="info">
+                  <p class="name">Eros EDT 100ml</p>
+                  <p class="meta">Versace · $319.900</p>
+                </div>
+                <div style="text-align:right">
+                  <span class="badge ok">24 en stock</span>
+                </div>
+              </div>
+              <div class="prow">
+                <div class="thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3h6v3l2 3v11H7V9l2-3V3Z"/></svg></div>
+                <div class="info">
+                  <p class="name">Acqua di Giò EDP 100ml</p>
+                  <p class="meta">Giorgio Armani · $469.000</p>
+                </div>
+                <div style="text-align:right"><span class="badge low">4 · stock bajo</span></div>
+              </div>
+              <div class="prow">
+                <div class="thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3h6v3l2 3v11H7V9l2-3V3Z"/></svg></div>
+                <div class="info">
+                  <p class="name">La Vie Est Belle EDP 75ml</p>
+                  <p class="meta">Lancôme · $415.000</p>
+                </div>
+                <div style="text-align:right"><span class="badge out">Agotado</span></div>
+              </div>
+              <div class="prow">
+                <div class="thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3h6v3l2 3v11H7V9l2-3V3Z"/></svg></div>
+                <div class="info">
+                  <p class="name">Sauvage EDP 100ml</p>
+                  <p class="meta">Dior · $459.900</p>
+                </div>
+                <div style="text-align:right"><span class="badge ok">31 en stock</span></div>
+              </div>
+              <div class="prow">
+                <div class="thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 3h6v3l2 3v11H7V9l2-3V3Z"/></svg></div>
+                <div class="info">
+                  <p class="name">Good Girl EDP 80ml</p>
+                  <p class="meta">Carolina Herrera · $389.000</p>
+                </div>
+                <div style="text-align:right"><span class="badge low">6 · stock bajo</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 7h12l-1 12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span>Venta</span></div>
+            <div class="tab active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8 12 4l8 4-8 4-8-4Z"/><path d="M4 8v8l8 4 8-4V8"/></svg><span>Stock</span></div>
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 4v16M4 9h4"/></svg><span>Pedidos</span></div>
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 19V9M12 19V5M19 19v-7"/></svg><span>Reportes</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4. DASHBOARD ============ -->
+    <section>
+      <div class="frame-label">
+        <span class="idx">04</span>
+        <h2>Reportes</h2>
+        <span class="role">Admin</span>
+      </div>
+      <div class="device">
+        <div class="screen">
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="dots"><span class="bar" style="height:7px"></span><span class="bar" style="height:10px"></span><span class="bar" style="height:13px"></span><span>100%</span></span>
+          </div>
+          <div class="appbar">
+            <div>
+              <h1 class="title">Reportes</h1>
+              <p class="sub">Hoy · 21 jul 2026</p>
+            </div>
+            <div class="spacer"></div>
+            <div class="icon-btn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 10 12 5l5 5M12 5v11M6 19h12"/></svg></div>
+          </div>
+          <div class="body">
+            <div class="kpis">
+              <div class="kpi">
+                <p class="k">Ventas hoy</p>
+                <p class="v">$4.28M</p>
+                <p class="d up">▲ 12% vs. ayer</p>
+              </div>
+              <div class="kpi">
+                <p class="k">Ticket prom.</p>
+                <p class="v">$356K</p>
+                <p class="d up">▲ 4%</p>
+              </div>
+              <div class="kpi wide">
+                <div class="section-h">
+                  <span class="t">Ventas · últimos 7 días</span>
+                  <span class="a">Ver detalle</span>
+                </div>
+                <div class="chart">
+                  <div class="col soft"><div class="b" style="height:38%"></div><span class="lb">L</span></div>
+                  <div class="col soft"><div class="b" style="height:52%"></div><span class="lb">M</span></div>
+                  <div class="col soft"><div class="b" style="height:44%"></div><span class="lb">M</span></div>
+                  <div class="col soft"><div class="b" style="height:66%"></div><span class="lb">J</span></div>
+                  <div class="col soft"><div class="b" style="height:58%"></div><span class="lb">V</span></div>
+                  <div class="col soft"><div class="b" style="height:82%"></div><span class="lb">S</span></div>
+                  <div class="col"><div class="b" style="height:74%"></div><span class="lb">D</span></div>
+                </div>
+              </div>
+              <div class="kpi wide">
+                <div class="section-h"><span class="t">Más vendidos hoy</span></div>
+                <div class="cart" style="border:none;padding:6px 0 0">
+                  <div class="line"><span><span class="qty">14 u</span> Sauvage EDP 100ml</span><span style="font-variant-numeric:tabular-nums">$6.43M</span></div>
+                  <div class="line"><span><span class="qty">9 u</span> Good Girl EDP 80ml</span><span style="font-variant-numeric:tabular-nums">$3.50M</span></div>
+                  <div class="line"><span><span class="qty">7 u</span> Bleu de Chanel EDP</span><span style="font-variant-numeric:tabular-nums">$3.63M</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 7h12l-1 12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span>Venta</span></div>
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8 12 4l8 4-8 4-8-4Z"/><path d="M4 8v8l8 4 8-4V8"/></svg><span>Stock</span></div>
+            <div class="tab"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 4v16M4 9h4"/></svg><span>Pedidos</span></div>
+            <div class="tab active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 19V9M12 19V5M19 19v-7"/></svg><span>Reportes</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="legend">
+    <div>
+      <h3>Estética</h3>
+      <p>Minimalismo editorial: monocromo cálido, serif de titulares, superficies planas con borde de 1px. Sin gradientes ni sombras marcadas.</p>
+    </div>
+    <div>
+      <h3>Color con propósito</h3>
+      <p>El color aparece solo para estado: verde (en stock), ámbar (stock bajo), rojo (agotado). El acento de marca es ámbar, usado con reserva.</p>
+    </div>
+    <div>
+      <h3>Alcance de estas pantallas</h3>
+      <p>Cubre el MVP: ingreso, punto de venta e inventario, más un vistazo de reportes. Siguiente entrega: tienda online (cliente) y dashboard web.</p>
+    </div>
+  </div>
+</div>
