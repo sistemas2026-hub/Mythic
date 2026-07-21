@@ -15,6 +15,8 @@ export const colors = {
   greenInk: '#346538',
   redBg: '#FDEBEC',
   redInk: '#9F2F2D',
+  blueBg: '#E1F3FE',
+  blueInk: '#1F6C9F',
 } as const;
 
 export const fonts = {

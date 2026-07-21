@@ -12,6 +12,10 @@ export * from './api/auth';
 export * from './api/products';
 export * from './api/inventory';
 export * from './api/sales';
+export * from './api/orders';
+export * from './api/contacts';
+export * from './api/metrics';
+export * from './api/stores';
 
 // Utilidades
 export * from './format';

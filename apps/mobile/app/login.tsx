@@ -13,7 +13,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (session) return <Redirect href="/(app)/pos" />;
+  if (session) return <Redirect href="/(app)" />;
 
   async function onSubmit() {
     setError(null);

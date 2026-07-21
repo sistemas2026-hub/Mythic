@@ -1,4 +1,4 @@
-import type { InventoryRow } from './database.types';
+import type { InventoryRow, SaleRow } from './database.types';
 
 /**
  * Formatea un monto como moneda. Por defecto COP sin decimales;
@@ -33,3 +33,31 @@ export const stockStatusLabel: Record<StockStatus, string> = {
   low: 'Stock bajo',
   out: 'Agotado',
 };
+
+/** Verdadero si la fecha ISO corresponde al día de hoy (hora local). */
+export function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+export interface SalesSummary {
+  /** Suma de los totales de las ventas completadas. */
+  revenue: number;
+  /** Número de ventas completadas. */
+  count: number;
+  /** Ticket promedio (0 si no hubo ventas). */
+  average: number;
+}
+
+/** Resume las ventas completadas de hoy. Se usa en Inicio y en Reportes. */
+export function summarizeTodaySales(sales: SaleRow[]): SalesSummary {
+  const today = sales.filter((s) => s.status === 'completada' && isToday(s.created_at));
+  const revenue = today.reduce((sum, s) => sum + s.total, 0);
+  const count = today.length;
+  return { revenue, count, average: count > 0 ? revenue / count : 0 };
+}
