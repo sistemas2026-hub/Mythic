@@ -41,10 +41,12 @@ export interface BrandRow {
   created_at: string;
 }
 
+/** Tipo de artículo dentro de una familia (Árabe en Perfumes, Frascos en Envases…). */
 export interface CategoryRow {
   id: string;
   name: string;
   slug: string;
+  family_id: string | null;
   created_at: string;
 }
 

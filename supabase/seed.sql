@@ -47,13 +47,21 @@ insert into public.brands (name) values
   ('Yves Saint Laurent'), ('Versace'), ('Giorgio Armani'), ('Lancôme')
 on conflict (name) do nothing;
 
--- Tipos de perfume (se pueden agregar más desde la app)
-insert into public.categories (name, slug) values
-  ('Árabe', 'arabe'),
-  ('Diseñador', 'disenador'),
-  ('Nicho', 'nicho'),
-  ('Réplica / Genérico', 'replica')
-on conflict (slug) do nothing;
+-- Tipos por familia (se pueden agregar más desde la app)
+insert into public.categories (name, slug, family_id)
+select t.name, t.slug, f.id
+from (values
+  ('Árabe',              'arabe',        'perfumes'),
+  ('Diseñador',          'disenador',    'perfumes'),
+  ('Nicho',              'nicho',        'perfumes'),
+  ('Réplica / Genérico', 'replica',      'perfumes'),
+  ('Frascos',            'frascos',      'envases'),
+  ('Atomizadores',       'atomizadores', 'envases'),
+  ('Tapas',              'tapas',        'envases'),
+  ('Cajas',              'cajas',        'envases')
+) as t(name, slug, family_slug)
+join public.product_families f on f.slug = t.family_slug
+on conflict (family_id, slug) do nothing;
 
 -- La familia Perfumes arranca VACÍA: el catálogo real lo carga la tienda desde
 -- la app (Inventario -> Perfumes -> Agregar artículo).
@@ -76,6 +84,18 @@ from (values
   ('Agua destilada',             'materia-prima', 'MP-AGUA',    'l',       4200)
 ) as i(name, family_slug, sku, unit, cost)
 on conflict (sku) do nothing;
+
+-- Clasifica los envases de ejemplo en sus tipos
+update public.products p
+set category_id = c.id
+from public.categories c
+join public.product_families f on f.id = c.family_id
+where f.slug = 'envases'
+  and c.slug = case
+    when p.sku in ('ENV-FR100', 'ENV-FR050') then 'frascos'
+    when p.sku = 'ENV-ATOM-D' then 'atomizadores'
+    when p.sku = 'ENV-TAPA-N' then 'tapas'
+  end;
 
 -- Existencias iniciales de los insumos en la sucursal Centro
 insert into public.inventory (store_id, product_id, quantity, min_quantity)

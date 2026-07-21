@@ -5,11 +5,13 @@ import type { CategoryRow } from '../database.types';
  * Tipos de clasificación de los perfumes (Árabe, Diseñador, Nicho, Réplica…).
  * La tienda puede agregar los que necesite.
  */
-export async function listCategories(client: SupabaseClient): Promise<CategoryRow[]> {
-  const { data, error } = await client
-    .from('categories')
-    .select('*')
-    .order('name', { ascending: true });
+export async function listCategories(
+  client: SupabaseClient,
+  familyId?: string,
+): Promise<CategoryRow[]> {
+  let query = client.from('categories').select('*').order('name', { ascending: true });
+  if (familyId) query = query.eq('family_id', familyId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as CategoryRow[];
 }
@@ -37,7 +39,11 @@ export async function listTypesWithStock(
   familyId: string,
 ): Promise<TypesBreakdown> {
   const [catsRes, prodRes] = await Promise.all([
-    client.from('categories').select('*').order('name', { ascending: true }),
+    client
+      .from('categories')
+      .select('*')
+      .eq('family_id', familyId)
+      .order('name', { ascending: true }),
     client
       .from('products')
       .select('category_id,inventory(quantity,min_quantity)')
@@ -75,8 +81,12 @@ export async function listTypesWithStock(
   };
 }
 
-/** Crea un tipo nuevo. */
-export async function createCategory(client: SupabaseClient, name: string): Promise<CategoryRow> {
+/** Crea un tipo nuevo dentro de una familia. */
+export async function createCategory(
+  client: SupabaseClient,
+  name: string,
+  familyId: string,
+): Promise<CategoryRow> {
   const slug = name
     .trim()
     .toLowerCase()
@@ -87,7 +97,7 @@ export async function createCategory(client: SupabaseClient, name: string): Prom
 
   const { data, error } = await client
     .from('categories')
-    .insert({ name: name.trim(), slug })
+    .insert({ name: name.trim(), slug, family_id: familyId })
     .select('*')
     .single();
   if (error) throw error;

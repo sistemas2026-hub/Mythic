@@ -77,10 +77,17 @@ export default function FamilyDetail() {
     enabled: !!id,
   });
   const family = familyQuery.data;
-  /** Los tipos solo aplican a lo que se vende (perfumes). */
-  const usesTypes = family ? !family.is_supply : false;
-  /** Con tipos y sin uno elegido, la pantalla muestra los sub-módulos. */
-  const showingTypes = usesTypes && !type;
+
+  // Cada familia define sus propios tipos. Si tiene al menos uno, la pantalla
+  // muestra los sub-módulos; si no, va directo a la lista de artículos.
+  const typesQuery = useQuery({
+    queryKey: ['categories', id],
+    queryFn: () => listCategories(supabase, id),
+    enabled: !!id,
+  });
+  const types = typesQuery.data ?? [];
+  const hasTypes = types.length > 0;
+  const showingTypes = hasTypes && !type;
 
   const itemsQuery = useQuery({
     queryKey: ['family-items', id, storeId, search, type],
@@ -98,12 +105,6 @@ export default function FamilyDetail() {
     queryKey: ['family-types', id, storeId],
     queryFn: () => listTypesWithStock(supabase, storeId as string, id),
     enabled: !!storeId && !!id && showingTypes,
-  });
-
-  const typesQuery = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => listCategories(supabase),
-    enabled: usesTypes,
   });
 
   // Precarga el formulario al abrir en modo edición.
@@ -144,7 +145,7 @@ export default function FamilyDetail() {
         name: form.name.trim(),
         sku: form.sku.trim() || null,
         unit: form.unit,
-        category_id: usesTypes ? form.categoryId : null,
+        category_id: form.categoryId,
         price: Number(form.price) || 0,
         cost: Number(form.cost) || null,
       };
@@ -184,7 +185,7 @@ export default function FamilyDetail() {
   });
 
   const addType = useMutation({
-    mutationFn: () => createCategory(supabase, newType),
+    mutationFn: () => createCategory(supabase, newType, id),
     onSuccess: (created) => {
       setForm((f) => ({ ...f, categoryId: created.id }));
       setNewType('');
@@ -217,11 +218,19 @@ export default function FamilyDetail() {
   }
 
   const items = itemsQuery.data ?? [];
-  const types = typesQuery.data ?? [];
   const breakdown = breakdownQuery.data;
   const selectedType = type && type !== UNTYPED ? types.find((t) => t.id === type) : undefined;
+  /** "3 insumos" en Esencias, "3 artículos" en Envases y Perfumes. */
+  const noun = (n: number) =>
+    family?.kind === 'insumo'
+      ? n === 1
+        ? 'insumo'
+        : 'insumos'
+      : n === 1
+        ? 'artículo'
+        : 'artículos';
 
-  // Sub-módulos por tipo: un recuadro con el nombre y cuántos perfumes hay.
+  // Sub-módulos por tipo: un recuadro con el nombre y cuántos artículos tiene.
   const typesView = (
     <>
       <ScreenHeader title={family?.name ?? 'Familia'} subtitle="Elige un tipo" />
@@ -235,7 +244,7 @@ export default function FamilyDetail() {
                 <CountCard
                   label={t.name}
                   count={t.items}
-                  noun={t.items === 1 ? 'perfume' : 'perfumes'}
+                  noun={noun(t.items)}
                   low={t.low}
                   out={t.out}
                   onPress={() => router.push(`/(app)/inventory/${id}?type=${t.id}`)}
@@ -247,7 +256,7 @@ export default function FamilyDetail() {
                 <CountCard
                   label="Sin tipo"
                   count={breakdown.untyped.items}
-                  noun={breakdown.untyped.items === 1 ? 'perfume' : 'perfumes'}
+                  noun={noun(breakdown.untyped.items)}
                   low={breakdown.untyped.low}
                   out={breakdown.untyped.out}
                   onPress={() => router.push(`/(app)/inventory/${id}?type=${UNTYPED}`)}
@@ -261,12 +270,12 @@ export default function FamilyDetail() {
             accessibilityRole="button"
             style={({ pressed }) => [styles.addBox, pressed && styles.rowPressed]}
           >
-            <Text style={styles.addBoxText}>+ AGREGAR PERFUME</Text>
+            <Text style={styles.addBoxText}>+ AGREGAR ARTÍCULO</Text>
           </Pressable>
 
           <Text style={styles.hint}>
-            Cada recuadro agrupa los perfumes de ese tipo. Los tipos nuevos se crean desde el
-            formulario del artículo.
+            Cada recuadro agrupa los artículos de ese tipo. Los tipos nuevos se crean desde el
+            formulario del artículo, con el botón "+ Nuevo".
           </Text>
         </ScrollView>
       )}
@@ -277,9 +286,7 @@ export default function FamilyDetail() {
     <>
       <ScreenHeader
         title={selectedType?.name ?? (type === UNTYPED ? 'Sin tipo' : (family?.name ?? 'Familia'))}
-        subtitle={
-          usesTypes ? (family?.name ?? '') : family?.kind === 'insumo' ? 'Insumo' : 'Artículo'
-        }
+        subtitle={type ? (family?.name ?? '') : family?.kind === 'insumo' ? 'Insumo' : 'Artículo'}
       />
 
       <View style={styles.searchWrap}>
@@ -379,57 +386,52 @@ export default function FamilyDetail() {
                 autoCapitalize="characters"
               />
 
-              {usesTypes ? (
-                <>
-                  <Text style={[styles.fieldLabel, styles.spaced]}>TIPO</Text>
-                  <View style={styles.chipWrap}>
-                    {types.map((t) => {
-                      const active = form.categoryId === t.id;
-                      return (
-                        <Pressable
-                          key={t.id}
-                          onPress={() =>
-                            setForm((f) => ({ ...f, categoryId: active ? null : t.id }))
-                          }
-                          style={[styles.chip, active && styles.chipActive]}
-                        >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {t.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+              {/* Cualquier familia puede clasificarse por tipos; los crea el usuario. */}
+              <Text style={[styles.fieldLabel, styles.spaced]}>TIPO</Text>
+              <View style={styles.chipWrap}>
+                {types.map((t) => {
+                  const active = form.categoryId === t.id;
+                  return (
                     <Pressable
-                      onPress={() => setShowNewType((v) => !v)}
-                      style={[styles.chip, styles.chipDashed]}
+                      key={t.id}
+                      onPress={() => setForm((f) => ({ ...f, categoryId: active ? null : t.id }))}
+                      style={[styles.chip, active && styles.chipActive]}
                     >
-                      <Text style={styles.chipText}>+ Nuevo</Text>
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {t.name}
+                      </Text>
                     </Pressable>
-                  </View>
+                  );
+                })}
+                <Pressable
+                  onPress={() => setShowNewType((v) => !v)}
+                  style={[styles.chip, styles.chipDashed]}
+                >
+                  <Text style={styles.chipText}>+ Nuevo</Text>
+                </Pressable>
+              </View>
 
-                  {showNewType ? (
-                    <View style={styles.newTypeRow}>
-                      <TextInput
-                        style={[styles.input, styles.newTypeInput]}
-                        value={newType}
-                        onChangeText={setNewType}
-                        placeholder="Nombre del tipo"
-                        placeholderTextColor={colors.muted}
-                        autoFocus
-                      />
-                      <Pressable
-                        onPress={() => addType.mutate()}
-                        disabled={newType.trim().length < 2 || addType.isPending}
-                        style={[
-                          styles.newTypeBtn,
-                          newType.trim().length < 2 && styles.newTypeBtnDisabled,
-                        ]}
-                      >
-                        <Text style={styles.newTypeBtnText}>Agregar</Text>
-                      </Pressable>
-                    </View>
-                  ) : null}
-                </>
+              {showNewType ? (
+                <View style={styles.newTypeRow}>
+                  <TextInput
+                    style={[styles.input, styles.newTypeInput]}
+                    value={newType}
+                    onChangeText={setNewType}
+                    placeholder="Nombre del tipo"
+                    placeholderTextColor={colors.muted}
+                    autoFocus
+                  />
+                  <Pressable
+                    onPress={() => addType.mutate()}
+                    disabled={newType.trim().length < 2 || addType.isPending}
+                    style={[
+                      styles.newTypeBtn,
+                      newType.trim().length < 2 && styles.newTypeBtnDisabled,
+                    ]}
+                  >
+                    <Text style={styles.newTypeBtnText}>Agregar</Text>
+                  </Pressable>
+                </View>
               ) : null}
 
               <Text style={[styles.fieldLabel, styles.spaced]}>UNIDAD DE MEDIDA</Text>
