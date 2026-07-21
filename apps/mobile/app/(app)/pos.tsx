@@ -32,7 +32,9 @@ export default function Pos() {
 
   const productsQuery = useQuery({
     queryKey: ['products', storeId, search],
-    queryFn: () => listProductsWithStock(supabase, storeId as string, search),
+    // Solo artículos vendibles: los insumos (envases, esencias, materia prima) no se venden.
+    queryFn: () =>
+      listProductsWithStock(supabase, storeId as string, { search, sellableOnly: true }),
     enabled: !!storeId,
   });
 

@@ -48,11 +48,30 @@ export interface CategoryRow {
   created_at: string;
 }
 
+/** Unidad en que se cuenta un artículo. */
+export type ProductUnit = 'unidad' | 'ml' | 'g' | 'l';
+
+/** Familia de artículos: Perfumes, Envases, Esencias, Materia prima… */
+export interface ProductFamilyRow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  /** true = insumo interno; sus artículos no se venden por defecto. */
+  is_supply: boolean;
+  /** Familias base que no se pueden eliminar desde la app. */
+  is_system: boolean;
+  created_at: string;
+}
+
 export interface ProductRow {
   id: string;
   name: string;
   brand_id: string | null;
   category_id: string | null;
+  family_id: string | null;
+  unit: ProductUnit;
+  is_sellable: boolean;
   description: string | null;
   gender: Gender | null;
   concentration: Concentration | null;

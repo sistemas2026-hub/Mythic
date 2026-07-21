@@ -4,11 +4,16 @@ export const genderSchema = z.enum(['hombre', 'mujer', 'unisex']);
 export const concentrationSchema = z.enum(['Parfum', 'EDP', 'EDT', 'EDC', 'Otro']);
 export const paymentMethodSchema = z.enum(['efectivo', 'tarjeta', 'transferencia', 'otro']);
 
-/** Alta/edición de un producto (perfume). */
+export const productUnitSchema = z.enum(['unidad', 'ml', 'g', 'l']);
+
+/** Alta/edición de un artículo (perfume, envase, esencia o materia prima). */
 export const productInputSchema = z.object({
   name: z.string().min(2, 'El nombre es obligatorio'),
   brand_id: z.string().uuid().nullable().optional(),
   category_id: z.string().uuid().nullable().optional(),
+  family_id: z.string().uuid().nullable().optional(),
+  unit: productUnitSchema.default('unidad'),
+  is_sellable: z.boolean().default(true),
   description: z.string().optional(),
   gender: genderSchema.nullable().optional(),
   concentration: concentrationSchema.nullable().optional(),
@@ -20,6 +25,13 @@ export const productInputSchema = z.object({
   image_url: z.string().url().nullable().optional(),
 });
 export type ProductInput = z.infer<typeof productInputSchema>;
+
+/** Alta de un artículo desde el inventario, con sus existencias iniciales. */
+export const newArticleSchema = productInputSchema.extend({
+  quantity: z.number().int().nonnegative().default(0),
+  min_quantity: z.number().int().nonnegative().default(0),
+});
+export type NewArticleInput = z.infer<typeof newArticleSchema>;
 
 /** Un renglón del carrito del POS. */
 export const cartItemSchema = z.object({

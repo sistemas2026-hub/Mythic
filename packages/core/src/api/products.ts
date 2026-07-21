@@ -1,15 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ProductRow, ProductWithStock } from '../database.types';
-import type { ProductInput } from '../validation';
+import { newArticleSchema, type NewArticleInput, type ProductInput } from '../validation';
 
 const PRODUCT_WITH_STOCK_SELECT =
   '*, brand:brands(id,name), category:categories(id,name,slug), inventory(quantity,min_quantity)';
 
-/** Lista productos con su marca, categoría y stock en una sucursal. Búsqueda opcional por nombre/SKU. */
+export interface ProductQueryOptions {
+  /** Busca por nombre o SKU. */
+  search?: string;
+  /** Limita a una familia de artículos (Perfumes, Envases, Esencias…). */
+  familyId?: string;
+  /** Solo artículos vendibles en el POS (excluye insumos internos). */
+  sellableOnly?: boolean;
+}
+
+/** Lista productos con su marca, categoría y stock en una sucursal. */
 export async function listProductsWithStock(
   client: SupabaseClient,
   storeId: string,
-  search?: string,
+  options: ProductQueryOptions = {},
 ): Promise<ProductWithStock[]> {
   let query = client
     .from('products')
@@ -18,8 +27,12 @@ export async function listProductsWithStock(
     .eq('inventory.store_id', storeId)
     .order('name', { ascending: true });
 
-  if (search && search.trim().length > 0) {
-    const term = `%${search.trim()}%`;
+  if (options.familyId) query = query.eq('family_id', options.familyId);
+  if (options.sellableOnly) query = query.eq('is_sellable', true);
+
+  const search = options.search?.trim();
+  if (search) {
+    const term = `%${search}%`;
     query = query.or(`name.ilike.${term},sku.ilike.${term}`);
   }
 
@@ -40,6 +53,40 @@ export async function getProductByBarcode(
     .maybeSingle();
   if (error) throw error;
   return (data as ProductRow | null) ?? null;
+}
+
+/**
+ * Crea un artículo y deja sus existencias iniciales en la sucursal.
+ * Registra el movimiento de kardex cuando entra con stock.
+ */
+export async function createArticleWithStock(
+  client: SupabaseClient,
+  storeId: string,
+  input: NewArticleInput,
+): Promise<ProductRow> {
+  const { quantity, min_quantity, ...productFields } = newArticleSchema.parse(input);
+
+  const { data, error } = await client.from('products').insert(productFields).select('*').single();
+  if (error) throw error;
+  const product = data as ProductRow;
+
+  const { error: invError } = await client
+    .from('inventory')
+    .insert({ store_id: storeId, product_id: product.id, quantity, min_quantity });
+  if (invError) throw invError;
+
+  if (quantity > 0) {
+    const { error: movError } = await client.from('inventory_movements').insert({
+      store_id: storeId,
+      product_id: product.id,
+      type: 'entrada',
+      quantity,
+      reason: 'Existencias iniciales',
+    });
+    if (movError) throw movError;
+  }
+
+  return product;
 }
 
 /** Crea o actualiza un producto. */
