@@ -18,7 +18,7 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --local --schema public > packages/core/src/database.types.ts"
+    "db:types": "supabase gen types typescript --local --schema public > packages/core/src/database.generated.ts"
   },
   "devDependencies": {
     "prettier": "^3.4.2",
