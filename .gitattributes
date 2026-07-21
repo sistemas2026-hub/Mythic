@@ -1,0 +1,13 @@
+# Normaliza finales de línea a LF en el repositorio
+* text=auto eol=lf
+
+# Binarios comunes
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+pnpm-lock.yaml -diff
