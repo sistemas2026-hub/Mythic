@@ -89,6 +89,48 @@ export async function createArticleWithStock(
   return product;
 }
 
+/** Actualiza los campos indicados de un artículo. */
+export async function updateProduct(
+  client: SupabaseClient,
+  id: string,
+  changes: Partial<ProductInput>,
+): Promise<ProductRow> {
+  const { data, error } = await client
+    .from('products')
+    .update(changes)
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as ProductRow;
+}
+
+/**
+ * Retira un artículo del catálogo. Es un borrado lógico (is_active = false)
+ * para no romper el historial de ventas que lo referencia.
+ */
+export async function deactivateProduct(client: SupabaseClient, id: string): Promise<void> {
+  const { error } = await client.from('products').update({ is_active: false }).eq('id', id);
+  if (error) throw error;
+}
+
+/** Ajusta las existencias y el mínimo de un artículo en una sucursal. */
+export async function setStockLevels(
+  client: SupabaseClient,
+  storeId: string,
+  productId: string,
+  quantity: number,
+  minQuantity: number,
+): Promise<void> {
+  const { error } = await client
+    .from('inventory')
+    .upsert(
+      { store_id: storeId, product_id: productId, quantity, min_quantity: minQuantity },
+      { onConflict: 'store_id,product_id' },
+    );
+  if (error) throw error;
+}
+
 /** Crea o actualiza un producto. */
 export async function upsertProduct(
   client: SupabaseClient,

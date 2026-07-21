@@ -59,7 +59,14 @@ export async function listFamiliesWithStock(
 /** Crea una familia nueva (por ejemplo "Cajas" o "Etiquetas"). */
 export async function createFamily(
   client: SupabaseClient,
-  input: { name: string; description?: string; isSupply?: boolean },
+  input: {
+    name: string;
+    description?: string;
+    /** Cómo se clasifica: bien tangible o consumible. */
+    kind?: 'articulo' | 'insumo';
+    /** true = sus artículos no se venden en el POS. */
+    isSupply?: boolean;
+  },
 ): Promise<ProductFamilyRow> {
   const slug = input.name
     .trim()
@@ -75,6 +82,7 @@ export async function createFamily(
       name: input.name.trim(),
       slug,
       description: input.description ?? null,
+      kind: input.kind ?? 'insumo',
       is_supply: input.isSupply ?? true,
       is_system: false,
     })

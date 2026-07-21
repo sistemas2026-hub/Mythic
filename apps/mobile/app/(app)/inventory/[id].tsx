@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -14,10 +15,15 @@ import { useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createArticleWithStock,
+  createCategory,
+  deactivateProduct,
   formatMoney,
   getFamily,
+  listCategories,
   listProductsWithStock,
+  setStockLevels,
   stockStatus,
+  updateProduct,
   type ProductUnit,
   type ProductWithStock,
 } from '@mythic/core';
@@ -34,6 +40,17 @@ const UNITS: { value: ProductUnit; label: string }[] = [
   { value: 'l', label: 'L' },
 ];
 
+const EMPTY_FORM = {
+  name: '',
+  sku: '',
+  unit: 'unidad' as ProductUnit,
+  categoryId: null as string | null,
+  cost: '',
+  price: '',
+  quantity: '',
+  minQuantity: '',
+};
+
 export default function FamilyDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuth();
@@ -41,16 +58,11 @@ export default function FamilyDetail() {
   const storeId = profile?.store_id ?? null;
 
   const [search, setSearch] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    sku: '',
-    unit: 'unidad' as ProductUnit,
-    cost: '',
-    price: '',
-    quantity: '',
-    minQuantity: '',
-  });
+  /** null = cerrado; 'new' = alta; un producto = edición. */
+  const [editing, setEditing] = useState<'new' | ProductWithStock | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [newType, setNewType] = useState('');
+  const [showNewType, setShowNewType] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const familyQuery = useQuery({
@@ -59,6 +71,8 @@ export default function FamilyDetail() {
     enabled: !!id,
   });
   const family = familyQuery.data;
+  /** Los tipos solo aplican a lo que se vende (perfumes). */
+  const usesTypes = family ? !family.is_supply : false;
 
   const itemsQuery = useQuery({
     queryKey: ['family-items', id, storeId, search],
@@ -66,40 +80,109 @@ export default function FamilyDetail() {
     enabled: !!storeId && !!id,
   });
 
-  const create = useMutation({
-    mutationFn: () =>
-      createArticleWithStock(supabase, storeId as string, {
+  const typesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories(supabase),
+    enabled: usesTypes,
+  });
+
+  // Precarga el formulario al abrir en modo edición.
+  useEffect(() => {
+    if (editing && editing !== 'new') {
+      const inv = editing.inventory?.[0];
+      setForm({
+        name: editing.name,
+        sku: editing.sku ?? '',
+        unit: editing.unit,
+        categoryId: editing.category_id,
+        cost: editing.cost != null ? String(editing.cost) : '',
+        price: String(editing.price ?? 0),
+        quantity: String(inv?.quantity ?? 0),
+        minQuantity: String(inv?.min_quantity ?? 0),
+      });
+    } else if (editing === 'new') {
+      setForm(EMPTY_FORM);
+    }
+    setError(null);
+    setShowNewType(false);
+    setNewType('');
+  }, [editing]);
+
+  function invalidate() {
+    void queryClient.invalidateQueries({ queryKey: ['family-items'] });
+    void queryClient.invalidateQueries({ queryKey: ['families'] });
+    void queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+    void queryClient.invalidateQueries({ queryKey: ['products'] });
+  }
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const fields = {
         name: form.name.trim(),
         sku: form.sku.trim() || null,
-        family_id: id,
         unit: form.unit,
-        is_sellable: !(family?.is_supply ?? true),
+        category_id: usesTypes ? form.categoryId : null,
         price: Number(form.price) || 0,
         cost: Number(form.cost) || null,
-        quantity: Number(form.quantity) || 0,
-        min_quantity: Number(form.minQuantity) || 0,
-      }),
+      };
+      const qty = Number(form.quantity) || 0;
+      const min = Number(form.minQuantity) || 0;
+
+      if (editing === 'new') {
+        await createArticleWithStock(supabase, storeId as string, {
+          ...fields,
+          family_id: id,
+          is_sellable: !(family?.is_supply ?? true),
+          quantity: qty,
+          min_quantity: min,
+        });
+      } else if (editing) {
+        await updateProduct(supabase, editing.id, fields);
+        await setStockLevels(supabase, storeId as string, editing.id, qty, min);
+      }
+    },
     onSuccess: () => {
-      setAdding(false);
-      setForm({
-        name: '',
-        sku: '',
-        unit: 'unidad',
-        cost: '',
-        price: '',
-        quantity: '',
-        minQuantity: '',
-      });
-      setError(null);
-      void queryClient.invalidateQueries({ queryKey: ['family-items'] });
-      void queryClient.invalidateQueries({ queryKey: ['families'] });
-      void queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      setEditing(null);
+      invalidate();
     },
     onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : 'No se pudo crear el artículo.';
+      const msg = e instanceof Error ? e.message : 'No se pudo guardar.';
       setError(msg.includes('duplicate') ? 'Ya existe un artículo con ese SKU.' : msg);
     },
   });
+
+  const remove = useMutation({
+    mutationFn: (productId: string) => deactivateProduct(supabase, productId),
+    onSuccess: () => {
+      setEditing(null);
+      invalidate();
+    },
+    onError: () => Alert.alert('Error', 'No se pudo eliminar el artículo.'),
+  });
+
+  const addType = useMutation({
+    mutationFn: () => createCategory(supabase, newType),
+    onSuccess: (created) => {
+      setForm((f) => ({ ...f, categoryId: created.id }));
+      setNewType('');
+      setShowNewType(false);
+      void queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+    onError: () => setError('No se pudo crear el tipo.'),
+  });
+
+  function confirmRemove() {
+    if (!editing || editing === 'new') return;
+    const product = editing;
+    Alert.alert(
+      'Eliminar artículo',
+      `¿Quitar "${product.name}" del inventario? El historial de ventas se conserva.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => remove.mutate(product.id) },
+      ],
+    );
+  }
 
   if (!storeId) {
     return (
@@ -111,12 +194,13 @@ export default function FamilyDetail() {
   }
 
   const items = itemsQuery.data ?? [];
+  const types = typesQuery.data ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader
         title={family?.name ?? 'Familia'}
-        subtitle={family?.is_supply ? 'Insumo interno' : 'Producto terminado'}
+        subtitle={family?.kind === 'insumo' ? 'Insumo' : 'Artículo'}
       />
 
       <View style={styles.searchWrap}>
@@ -141,19 +225,24 @@ export default function FamilyDetail() {
           ListEmptyComponent={
             <EmptyState
               title="Sin artículos todavía"
-              subtitle={`Agrega el primer artículo de ${family?.name ?? 'esta familia'} con el botón de abajo.`}
+              subtitle={`Agrega el primero de ${family?.name ?? 'esta familia'} con el botón de abajo.`}
             />
           }
           renderItem={({ item }: { item: ProductWithStock }) => {
             const inv = item.inventory?.[0] ?? null;
             return (
-              <View style={styles.row}>
+              <Pressable
+                onPress={() => setEditing(item)}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              >
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowName} numberOfLines={1}>
                     {item.name}
                   </Text>
                   <Text style={styles.rowMeta}>
                     {item.sku ?? 'Sin SKU'}
+                    {item.category ? ` · ${item.category.name}` : ''}
                     {item.is_sellable ? ` · ${formatMoney(item.price)}` : ''}
                   </Text>
                 </View>
@@ -163,33 +252,35 @@ export default function FamilyDetail() {
                     {inv?.quantity ?? 0} {item.unit}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             );
           }}
         />
       )}
 
       <View style={styles.footer}>
-        <PrimaryButton label="Agregar artículo" onPress={() => setAdding(true)} />
+        <PrimaryButton label="Agregar artículo" onPress={() => setEditing('new')} />
       </View>
 
       <Modal
-        visible={adding}
+        visible={editing !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setAdding(false)}
+        onRequestClose={() => setEditing(null)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setAdding(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setEditing(null)}>
           <Pressable style={styles.panel} onPress={() => {}}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.panelTitle}>Nuevo en {family?.name ?? 'la familia'}</Text>
+              <Text style={styles.panelTitle}>
+                {editing === 'new' ? `Nuevo en ${family?.name ?? ''}` : 'Editar artículo'}
+              </Text>
 
               <Text style={styles.fieldLabel}>NOMBRE</Text>
               <TextInput
                 style={styles.input}
                 value={form.name}
                 onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
-                placeholder="Frasco vidrio 100ml"
+                placeholder="Nombre del artículo"
                 placeholderTextColor={colors.muted}
               />
 
@@ -198,10 +289,63 @@ export default function FamilyDetail() {
                 style={styles.input}
                 value={form.sku}
                 onChangeText={(v) => setForm((f) => ({ ...f, sku: v }))}
-                placeholder="ENV-FR100"
+                placeholder="DIO-SAU-100"
                 placeholderTextColor={colors.muted}
                 autoCapitalize="characters"
               />
+
+              {usesTypes ? (
+                <>
+                  <Text style={[styles.fieldLabel, styles.spaced]}>TIPO</Text>
+                  <View style={styles.chipWrap}>
+                    {types.map((t) => {
+                      const active = form.categoryId === t.id;
+                      return (
+                        <Pressable
+                          key={t.id}
+                          onPress={() =>
+                            setForm((f) => ({ ...f, categoryId: active ? null : t.id }))
+                          }
+                          style={[styles.chip, active && styles.chipActive]}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {t.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Pressable
+                      onPress={() => setShowNewType((v) => !v)}
+                      style={[styles.chip, styles.chipDashed]}
+                    >
+                      <Text style={styles.chipText}>+ Nuevo</Text>
+                    </Pressable>
+                  </View>
+
+                  {showNewType ? (
+                    <View style={styles.newTypeRow}>
+                      <TextInput
+                        style={[styles.input, styles.newTypeInput]}
+                        value={newType}
+                        onChangeText={setNewType}
+                        placeholder="Nombre del tipo"
+                        placeholderTextColor={colors.muted}
+                        autoFocus
+                      />
+                      <Pressable
+                        onPress={() => addType.mutate()}
+                        disabled={newType.trim().length < 2 || addType.isPending}
+                        style={[
+                          styles.newTypeBtn,
+                          newType.trim().length < 2 && styles.newTypeBtnDisabled,
+                        ]}
+                      >
+                        <Text style={styles.newTypeBtnText}>Agregar</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
 
               <Text style={[styles.fieldLabel, styles.spaced]}>UNIDAD DE MEDIDA</Text>
               <View style={styles.unitRow}>
@@ -276,13 +420,20 @@ export default function FamilyDetail() {
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
               <PrimaryButton
-                label="Guardar artículo"
-                loading={create.isPending}
+                label={editing === 'new' ? 'Guardar artículo' : 'Guardar cambios'}
+                loading={save.isPending}
                 disabled={form.name.trim().length < 2}
-                onPress={() => create.mutate()}
+                onPress={() => save.mutate()}
                 style={{ marginTop: spacing.lg }}
               />
-              <Pressable onPress={() => setAdding(false)} style={styles.cancel}>
+
+              {editing !== 'new' ? (
+                <Pressable onPress={confirmRemove} style={styles.deleteBtn}>
+                  <Text style={styles.deleteText}>Eliminar artículo</Text>
+                </Pressable>
+              ) : null}
+
+              <Pressable onPress={() => setEditing(null)} style={styles.cancel}>
                 <Text style={styles.cancelText}>Cancelar</Text>
               </Pressable>
             </ScrollView>
@@ -317,6 +468,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     padding: spacing.md,
   },
+  rowPressed: { backgroundColor: colors.surface2 },
   rowInfo: { flex: 1, minWidth: 0 },
   rowName: { fontSize: 14, fontWeight: '600', color: colors.ink },
   rowMeta: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 2 },
@@ -367,6 +519,29 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.inkSoft,
   },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+  },
+  chipDashed: { borderStyle: 'dashed', backgroundColor: colors.surface2 },
+  chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipText: { fontSize: 13, color: colors.inkSoft },
+  chipTextActive: { color: '#FFFFFF' },
+  newTypeRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  newTypeInput: { flex: 1 },
+  newTypeBtn: {
+    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
+    backgroundColor: colors.ink,
+    borderRadius: radius.md,
+  },
+  newTypeBtnDisabled: { opacity: 0.4 },
+  newTypeBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
   unitRow: { flexDirection: 'row', gap: spacing.sm },
   unitChip: {
     flex: 1,
@@ -383,6 +558,8 @@ const styles = StyleSheet.create({
   twoCols: { flexDirection: 'row', gap: spacing.sm },
   col: { flex: 1 },
   error: { color: colors.redInk, fontSize: 13, marginTop: spacing.md },
-  cancel: { alignItems: 'center', paddingVertical: spacing.md },
+  deleteBtn: { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
+  deleteText: { color: colors.redInk, fontSize: 14 },
+  cancel: { alignItems: 'center', paddingVertical: spacing.sm },
   cancelText: { color: colors.muted, fontSize: 13 },
 });

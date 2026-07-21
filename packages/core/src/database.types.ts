@@ -57,7 +57,9 @@ export interface ProductFamilyRow {
   name: string;
   slug: string;
   description: string | null;
-  /** true = insumo interno; sus artículos no se venden por defecto. */
+  /** Cómo se clasifica la familia: bien tangible o consumible interno. */
+  kind: 'articulo' | 'insumo';
+  /** true = sus artículos no se venden en el POS. Independiente de `kind`. */
   is_supply: boolean;
   /** Familias base que no se pueden eliminar desde la app. */
   is_system: boolean;

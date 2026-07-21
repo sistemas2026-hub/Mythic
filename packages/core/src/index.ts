@@ -17,6 +17,7 @@ export * from './api/contacts';
 export * from './api/metrics';
 export * from './api/stores';
 export * from './api/families';
+export * from './api/categories';
 
 // Utilidades
 export * from './format';

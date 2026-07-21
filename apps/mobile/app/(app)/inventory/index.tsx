@@ -18,6 +18,12 @@ import { supabase } from '../../../src/lib/supabase';
 import { EmptyState, Loading, PrimaryButton } from '../../../src/components/ui';
 import { colors, fonts, radius, spacing } from '../../../src/theme';
 
+/** "4 artículos" para bienes tangibles, "3 insumos" para consumibles. */
+function itemNoun(kind: FamilyWithStock['kind'], count: number): string {
+  if (kind === 'insumo') return count === 1 ? 'insumo' : 'insumos';
+  return count === 1 ? 'artículo' : 'artículos';
+}
+
 function FamilyCard({ family, onPress }: { family: FamilyWithStock; onPress: () => void }) {
   const alerts: string[] = [];
   if (family.low > 0) alerts.push(`${family.low} bajo`);
@@ -31,10 +37,7 @@ function FamilyCard({ family, onPress }: { family: FamilyWithStock; onPress: () 
     >
       <Text style={styles.cardLabel}>{family.name.toUpperCase()}</Text>
       <Text style={styles.cardCount}>{family.items}</Text>
-      <Text style={styles.cardSub}>
-        {family.items === 1 ? 'artículo' : 'artículos'}
-        {family.is_supply ? ' · insumo' : ''}
-      </Text>
+      <Text style={styles.cardSub}>{itemNoun(family.kind, family.items)}</Text>
       {alerts.length > 0 ? (
         <View style={[styles.pill, family.out > 0 ? styles.pillRed : styles.pillAmber]}>
           <Text
@@ -56,7 +59,8 @@ export default function InventoryFamilies() {
 
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
-  const [isSupply, setIsSupply] = useState(true);
+  const [kind, setKind] = useState<'articulo' | 'insumo'>('insumo');
+  const [sellable, setSellable] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const query = useQuery({
@@ -66,11 +70,12 @@ export default function InventoryFamilies() {
   });
 
   const create = useMutation({
-    mutationFn: () => createFamily(supabase, { name, isSupply }),
+    mutationFn: () => createFamily(supabase, { name, kind, isSupply: !sellable }),
     onSuccess: () => {
       setCreating(false);
       setName('');
-      setIsSupply(true);
+      setKind('insumo');
+      setSellable(false);
       setError(null);
       void queryClient.invalidateQueries({ queryKey: ['families'] });
     },
@@ -146,14 +151,34 @@ export default function InventoryFamilies() {
               autoFocus
             />
 
+            <Text style={[styles.fieldLabel, { marginTop: spacing.lg }]}>NATURALEZA</Text>
+            <View style={styles.kindRow}>
+              {(['articulo', 'insumo'] as const).map((k) => {
+                const active = kind === k;
+                return (
+                  <Pressable
+                    key={k}
+                    onPress={() => setKind(k)}
+                    style={[styles.kindChip, active && styles.kindChipActive]}
+                  >
+                    <Text style={[styles.kindText, active && styles.kindTextActive]}>
+                      {k === 'articulo' ? 'Artículo' : 'Insumo'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <View style={styles.switchRow}>
               <View style={styles.switchTexts}>
-                <Text style={styles.switchLabel}>Es un insumo interno</Text>
-                <Text style={styles.switchHint}>Sus artículos no se venderán en el POS</Text>
+                <Text style={styles.switchLabel}>Se vende en el Punto de Venta</Text>
+                <Text style={styles.switchHint}>
+                  Déjalo apagado para lo que solo se controla por stock
+                </Text>
               </View>
               <Switch
-                value={isSupply}
-                onValueChange={setIsSupply}
+                value={sellable}
+                onValueChange={setSellable}
                 trackColor={{ true: colors.ink, false: colors.border }}
                 thumbColor={colors.surface}
               />
@@ -270,6 +295,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.inkSoft,
   },
+  kindRow: { flexDirection: 'row', gap: spacing.sm },
+  kindChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  kindChipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  kindText: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft },
+  kindTextActive: { color: '#FFFFFF' },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
