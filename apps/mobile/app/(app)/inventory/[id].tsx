@@ -383,6 +383,21 @@ export default function FamilyDetail() {
             ) : null}
           </View>
 
+          {/* Las recetas estándar viven aparte, no dentro de cada perfume. */}
+          {isFinished ? (
+            <Pressable
+              onPress={() => router.push('/(app)/inventory/formulas')}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.formulasBox, pressed && styles.rowPressed]}
+            >
+              <View>
+                <Text style={styles.formulasLabel}>FÓRMULAS</Text>
+                <Text style={styles.formulasHint}>Recetas estándar reutilizables</Text>
+              </View>
+              <Text style={styles.formulasArrow}>→</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             onPress={() => setEditing('new')}
             accessibilityRole="button"
@@ -633,91 +648,28 @@ export default function FamilyDetail() {
                     </Text>
                   ) : null}
 
-                  <Text style={[styles.fieldLabel, styles.spaced]}>COMPONENTES · POR UNIDAD</Text>
+                  {/* Solo lectura: las recetas se editan en el apartado Fórmulas. */}
                   {components.length === 0 ? (
                     <Text style={styles.recipeHint}>
-                      Elige una fórmula estándar arriba, o agrega los insumos uno a uno.
+                      Elige una fórmula estándar. Se administran en Perfumes → Fórmulas.
                     </Text>
-                  ) : null}
-
-                  {components.map((c, index) => {
-                    const supply = supplies.find((s) => s.id === c.component_id);
-                    return (
-                      <View key={c.component_id} style={styles.recipeRow}>
-                        <View style={styles.recipeInfo}>
-                          <Text style={styles.recipeName} numberOfLines={1}>
-                            {supply?.name ?? 'Insumo'}
-                          </Text>
-                          <Text style={styles.recipeStock}>
-                            {supply ? `${supply.stock} ${supply.unit} disponibles` : ''}
-                          </Text>
-                        </View>
-                        <TextInput
-                          style={styles.recipeQty}
-                          value={c.quantity}
-                          onChangeText={(v) =>
-                            setComponents((prev) =>
-                              prev.map((p, i) => (i === index ? { ...p, quantity: v } : p)),
-                            )
-                          }
-                          placeholder="0"
-                          placeholderTextColor={colors.muted}
-                          keyboardType="numeric"
-                        />
-                        <Text style={styles.recipeUnit}>{supply?.unit ?? ''}</Text>
-                        <Pressable
-                          onPress={() =>
-                            setComponents((prev) => prev.filter((_, i) => i !== index))
-                          }
-                          hitSlop={8}
-                          accessibilityLabel="Quitar insumo"
-                        >
-                          <Text style={styles.recipeRemove}>✕</Text>
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-
-                  <Pressable
-                    onPress={() => setShowSupplyPicker((v) => !v)}
-                    style={[styles.chip, styles.chipDashed, styles.addSupply]}
-                  >
-                    <Text style={styles.chipText}>+ Agregar insumo</Text>
-                  </Pressable>
-
-                  {showSupplyPicker ? (
-                    <View style={styles.supplyList}>
-                      {supplies.length === 0 ? (
-                        <Text style={styles.recipeHint}>
-                          Aún no hay insumos cargados. Créalos en Esencias o Materia prima.
-                        </Text>
-                      ) : (
-                        supplies
-                          .filter((s) => !components.some((c) => c.component_id === s.id))
-                          .map((s) => (
-                            <Pressable
-                              key={s.id}
-                              onPress={() => {
-                                setComponents((prev) => [
-                                  ...prev,
-                                  { component_id: s.id, quantity: '' },
-                                ]);
-                                setShowSupplyPicker(false);
-                              }}
-                              style={({ pressed }) => [
-                                styles.supplyOption,
-                                pressed && styles.rowPressed,
-                              ]}
-                            >
-                              <Text style={styles.supplyName}>{s.name}</Text>
-                              <Text style={styles.supplyMeta}>
-                                {s.family_name} · {s.stock} {s.unit}
-                              </Text>
-                            </Pressable>
-                          ))
-                      )}
+                  ) : (
+                    <View style={styles.recipeBox}>
+                      {components.map((c) => {
+                        const supply = supplies.find((s) => s.id === c.component_id);
+                        return (
+                          <View key={c.component_id} style={styles.recipeRow}>
+                            <Text style={styles.recipeName} numberOfLines={1}>
+                              {supply?.name ?? 'Insumo'}
+                            </Text>
+                            <Text style={styles.recipeQty}>
+                              {c.quantity} {supply?.unit ?? ''}
+                            </Text>
+                          </View>
+                        );
+                      })}
                     </View>
-                  ) : null}
+                  )}
                 </>
               ) : null}
 
@@ -844,6 +796,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addBoxText: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, color: colors.inkSoft },
+  formulasBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  formulasLabel: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, color: colors.ink },
+  formulasHint: { fontSize: 12, color: colors.muted, marginTop: 3 },
+  formulasArrow: { fontSize: 18, color: colors.muted },
   hint: { fontSize: 12, color: colors.muted, lineHeight: 18 },
   list: { padding: spacing.lg, gap: spacing.sm, flexGrow: 1 },
   row: {
@@ -913,36 +879,23 @@ const styles = StyleSheet.create({
   selectValue: { fontSize: 15, color: colors.inkSoft },
   selectPlaceholder: { fontSize: 15, color: colors.muted },
   selectCaret: { fontSize: 12, color: colors.muted },
-  recipeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  recipeBox: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.surface2,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
   },
-  recipeInfo: { flex: 1, minWidth: 0 },
-  recipeName: { fontSize: 13, color: colors.ink },
-  recipeStock: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 2 },
-  recipeQty: {
-    width: 64,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
-    fontSize: 14,
-    textAlign: 'right',
-    color: colors.inkSoft,
+  recipeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: 5,
   },
-  recipeUnit: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 34 },
-  recipeRemove: { fontSize: 14, color: colors.muted },
-  addSupply: { alignSelf: 'flex-start' },
+  recipeName: { flex: 1, fontSize: 13, color: colors.inkSoft },
+  recipeQty: { fontFamily: fonts.mono, fontSize: 12, color: colors.ink },
   supplyList: {
     marginTop: spacing.sm,
     borderWidth: 1,
