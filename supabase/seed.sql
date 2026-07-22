@@ -58,7 +58,13 @@ from (values
   ('Frascos',            'frascos',      'envases'),
   ('Atomizadores',       'atomizadores', 'envases'),
   ('Tapas',              'tapas',        'envases'),
-  ('Cajas',              'cajas',        'envases')
+  ('Cajas',              'cajas',        'envases'),
+  ('Diseñador',          'disenador',    'esencias'),
+  ('Árabe',              'arabe',        'esencias'),
+  ('Nicho',              'nicho',        'esencias'),
+  ('Damas',              'damas',        'esencias'),
+  ('Caballeros',         'caballeros',   'esencias'),
+  ('Unisex',             'unisex',       'esencias')
 ) as t(name, slug, family_slug)
 join public.product_families f on f.slug = t.family_slug
 on conflict (family_id, slug) do nothing;
