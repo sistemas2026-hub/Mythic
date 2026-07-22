@@ -14,6 +14,12 @@ export const productInputSchema = z.object({
   family_id: z.string().uuid().nullable().optional(),
   unit: productUnitSchema.default('unidad'),
   is_sellable: z.boolean().default(true),
+  /** Plantilla estándar de la que salió su fórmula. */
+  formula_template_id: z.string().uuid().nullable().optional(),
+  /** Esencia que define su aroma. */
+  essence_id: z.string().uuid().nullable().optional(),
+  /** true cuando la fórmula se apartó de la plantilla. */
+  is_custom_formula: z.boolean().optional(),
   description: z.string().optional(),
   gender: genderSchema.nullable().optional(),
   concentration: concentrationSchema.nullable().optional(),
