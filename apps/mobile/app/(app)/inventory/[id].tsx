@@ -17,14 +17,20 @@ import {
   createArticleWithStock,
   createCategory,
   deactivateProduct,
+  ensureInventory,
   formatMoney,
   getFamily,
   listCategories,
   listProductsWithStock,
+  listRecipe,
+  listSupplies,
   listTypesWithStock,
+  registerProduction,
+  setRecipe,
   setStockLevels,
   stockStatus,
   updateProduct,
+  upsertProduct,
   type ProductUnit,
   type ProductWithStock,
 } from '@mythic/core';
@@ -50,11 +56,18 @@ const EMPTY_FORM = {
   sku: '',
   unit: 'unidad' as ProductUnit,
   categoryId: null as string | null,
+  volumeMl: '',
   cost: '',
   price: '',
   quantity: '',
   minQuantity: '',
 };
+
+/** Una línea de la fórmula: qué insumo y cuánto lleva UNA unidad. */
+interface ComponentLine {
+  component_id: string;
+  quantity: string;
+}
 
 export default function FamilyDetail() {
   const { id, type } = useLocalSearchParams<{ id: string; type?: string }>();
@@ -69,6 +82,8 @@ export default function FamilyDetail() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [newType, setNewType] = useState('');
   const [showNewType, setShowNewType] = useState(false);
+  const [components, setComponents] = useState<ComponentLine[]>([]);
+  const [showSupplyPicker, setShowSupplyPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const familyQuery = useQuery({
@@ -107,6 +122,16 @@ export default function FamilyDetail() {
     enabled: !!storeId && !!id && showingTypes,
   });
 
+  /** Los productos terminados (perfumes) se arman con una fórmula de insumos. */
+  const isFinished = family ? !family.is_supply : false;
+
+  const suppliesQuery = useQuery({
+    queryKey: ['supplies', storeId],
+    queryFn: () => listSupplies(supabase, storeId as string),
+    enabled: !!storeId && isFinished,
+  });
+  const supplies = suppliesQuery.data ?? [];
+
   // Precarga el formulario al abrir en modo edición.
   useEffect(() => {
     if (editing && editing !== 'new') {
@@ -116,19 +141,28 @@ export default function FamilyDetail() {
         sku: editing.sku ?? '',
         unit: editing.unit,
         categoryId: editing.category_id,
+        volumeMl: editing.volume_ml != null ? String(editing.volume_ml) : '',
         cost: editing.cost != null ? String(editing.cost) : '',
         price: String(editing.price ?? 0),
         quantity: String(inv?.quantity ?? 0),
         minQuantity: String(inv?.min_quantity ?? 0),
       });
+      // Trae la fórmula guardada del artículo.
+      void listRecipe(supabase, editing.id).then((recipe) =>
+        setComponents(
+          recipe.map((r) => ({ component_id: r.component_id, quantity: String(r.quantity) })),
+        ),
+      );
     } else if (editing === 'new') {
       // Si estamos dentro de un tipo, el artículo nuevo nace con ese tipo.
       const preset = type && type !== UNTYPED ? type : null;
       setForm({ ...EMPTY_FORM, categoryId: preset });
+      setComponents([]);
     }
     setError(null);
     setShowNewType(false);
     setNewType('');
+    setShowSupplyPicker(false);
   }, [editing, type]);
 
   function invalidate() {
@@ -146,28 +180,49 @@ export default function FamilyDetail() {
         sku: form.sku.trim() || null,
         unit: form.unit,
         category_id: form.categoryId,
+        volume_ml: Number(form.volumeMl) || null,
         price: Number(form.price) || 0,
         cost: Number(form.cost) || null,
       };
       const qty = Number(form.quantity) || 0;
       const min = Number(form.minQuantity) || 0;
+      const recipe = components
+        .map((c) => ({ component_id: c.component_id, quantity: Number(c.quantity) || 0 }))
+        .filter((c) => c.quantity > 0);
 
       if (editing === 'new') {
-        await createArticleWithStock(supabase, storeId as string, {
-          ...fields,
-          family_id: id,
-          is_sellable: !(family?.is_supply ?? true),
-          quantity: qty,
-          min_quantity: min,
-        });
+        if (isFinished) {
+          // Producto terminado: se crea sin stock, se guarda su fórmula y el
+          // stock inicial sale de producir, que consume los insumos.
+          const created = await upsertProduct(supabase, {
+            ...fields,
+            family_id: id,
+            is_sellable: true,
+          });
+          await ensureInventory(supabase, storeId as string, created.id, min);
+          await setRecipe(supabase, created.id, recipe);
+          if (qty > 0) {
+            await registerProduction(supabase, storeId as string, created.id, qty);
+          }
+        } else {
+          await createArticleWithStock(supabase, storeId as string, {
+            ...fields,
+            family_id: id,
+            is_sellable: false,
+            quantity: qty,
+            min_quantity: min,
+          });
+        }
       } else if (editing) {
         await updateProduct(supabase, editing.id, fields);
+        if (isFinished) await setRecipe(supabase, editing.id, recipe);
         await setStockLevels(supabase, storeId as string, editing.id, qty, min);
       }
     },
     onSuccess: () => {
       setEditing(null);
       invalidate();
+      void queryClient.invalidateQueries({ queryKey: ['supplies'] });
     },
     onError: (e: unknown) => {
       const msg = e instanceof Error ? e.message : 'No se pudo guardar.';
@@ -434,6 +489,106 @@ export default function FamilyDetail() {
                 </View>
               ) : null}
 
+              {isFinished ? (
+                <>
+                  <Text style={[styles.fieldLabel, styles.spaced]}>TAMAÑO (ML)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={form.volumeMl}
+                    onChangeText={(v) => setForm((f) => ({ ...f, volumeMl: v }))}
+                    placeholder="100"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="numeric"
+                  />
+
+                  <Text style={[styles.fieldLabel, styles.spaced]}>FÓRMULA · POR UNIDAD</Text>
+                  {components.length === 0 ? (
+                    <Text style={styles.recipeHint}>
+                      Agrega la esencia, el alcohol y los adicionales que lleva cada unidad.
+                    </Text>
+                  ) : null}
+
+                  {components.map((c, index) => {
+                    const supply = supplies.find((s) => s.id === c.component_id);
+                    return (
+                      <View key={c.component_id} style={styles.recipeRow}>
+                        <View style={styles.recipeInfo}>
+                          <Text style={styles.recipeName} numberOfLines={1}>
+                            {supply?.name ?? 'Insumo'}
+                          </Text>
+                          <Text style={styles.recipeStock}>
+                            {supply ? `${supply.stock} ${supply.unit} disponibles` : ''}
+                          </Text>
+                        </View>
+                        <TextInput
+                          style={styles.recipeQty}
+                          value={c.quantity}
+                          onChangeText={(v) =>
+                            setComponents((prev) =>
+                              prev.map((p, i) => (i === index ? { ...p, quantity: v } : p)),
+                            )
+                          }
+                          placeholder="0"
+                          placeholderTextColor={colors.muted}
+                          keyboardType="numeric"
+                        />
+                        <Text style={styles.recipeUnit}>{supply?.unit ?? ''}</Text>
+                        <Pressable
+                          onPress={() =>
+                            setComponents((prev) => prev.filter((_, i) => i !== index))
+                          }
+                          hitSlop={8}
+                          accessibilityLabel="Quitar insumo"
+                        >
+                          <Text style={styles.recipeRemove}>✕</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+
+                  <Pressable
+                    onPress={() => setShowSupplyPicker((v) => !v)}
+                    style={[styles.chip, styles.chipDashed, styles.addSupply]}
+                  >
+                    <Text style={styles.chipText}>+ Agregar insumo</Text>
+                  </Pressable>
+
+                  {showSupplyPicker ? (
+                    <View style={styles.supplyList}>
+                      {supplies.length === 0 ? (
+                        <Text style={styles.recipeHint}>
+                          Aún no hay insumos cargados. Créalos en Esencias o Materia prima.
+                        </Text>
+                      ) : (
+                        supplies
+                          .filter((s) => !components.some((c) => c.component_id === s.id))
+                          .map((s) => (
+                            <Pressable
+                              key={s.id}
+                              onPress={() => {
+                                setComponents((prev) => [
+                                  ...prev,
+                                  { component_id: s.id, quantity: '' },
+                                ]);
+                                setShowSupplyPicker(false);
+                              }}
+                              style={({ pressed }) => [
+                                styles.supplyOption,
+                                pressed && styles.rowPressed,
+                              ]}
+                            >
+                              <Text style={styles.supplyName}>{s.name}</Text>
+                              <Text style={styles.supplyMeta}>
+                                {s.family_name} · {s.stock} {s.unit}
+                              </Text>
+                            </Pressable>
+                          ))
+                      )}
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
+
               <Text style={[styles.fieldLabel, styles.spaced]}>UNIDAD DE MEDIDA</Text>
               <View style={styles.unitRow}>
                 {UNITS.map((u) => {
@@ -620,6 +775,53 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.inkSoft,
   },
+  recipeHint: { fontSize: 12, color: colors.muted, lineHeight: 17, marginBottom: spacing.sm },
+  recipeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  recipeInfo: { flex: 1, minWidth: 0 },
+  recipeName: { fontSize: 13, color: colors.ink },
+  recipeStock: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 2 },
+  recipeQty: {
+    width: 64,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    fontSize: 14,
+    textAlign: 'right',
+    color: colors.inkSoft,
+  },
+  recipeUnit: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, width: 34 },
+  recipeRemove: { fontSize: 14, color: colors.muted },
+  addSupply: { alignSelf: 'flex-start' },
+  supplyList: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface2,
+    overflow: 'hidden',
+  },
+  supplyOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  supplyName: { fontSize: 13, color: colors.ink },
+  supplyMeta: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 2 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     borderWidth: 1,

@@ -120,6 +120,32 @@ export async function deactivateProduct(client: SupabaseClient, id: string): Pro
   if (error) throw error;
 }
 
+/**
+ * Crea la fila de inventario del artículo si no existe (con cero existencias)
+ * y deja fijado su mínimo. Se usa antes de producir, para no pisar el stock.
+ */
+export async function ensureInventory(
+  client: SupabaseClient,
+  storeId: string,
+  productId: string,
+  minQuantity: number,
+): Promise<void> {
+  const { error } = await client
+    .from('inventory')
+    .upsert(
+      { store_id: storeId, product_id: productId, quantity: 0, min_quantity: minQuantity },
+      { onConflict: 'store_id,product_id', ignoreDuplicates: true },
+    );
+  if (error) throw error;
+
+  const { error: minError } = await client
+    .from('inventory')
+    .update({ min_quantity: minQuantity })
+    .eq('store_id', storeId)
+    .eq('product_id', productId);
+  if (minError) throw minError;
+}
+
 /** Ajusta las existencias y el mínimo de un artículo en una sucursal. */
 export async function setStockLevels(
   client: SupabaseClient,
