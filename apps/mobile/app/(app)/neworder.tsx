@@ -78,11 +78,11 @@ export default function NewOrder() {
     },
   });
 
+  // Los pedidos son por encargo: se puede pedir aunque no haya nada preparado,
+  // porque el perfume se prepara después consumiendo esencia y alcohol.
   function addToCart(product: ProductWithStock) {
-    const available = stockOf(product);
     setCart((prev) => {
       const current = prev[product.id]?.quantity ?? 0;
-      if (current >= available) return prev;
       return { ...prev, [product.id]: { product, quantity: current + 1 } };
     });
   }
@@ -96,7 +96,6 @@ export default function NewOrder() {
         const { [productId]: _removed, ...rest } = prev;
         return rest;
       }
-      if (next > stockOf(line.product)) return prev;
       return { ...prev, [productId]: { ...line, quantity: next } };
     });
   }
@@ -141,7 +140,6 @@ export default function NewOrder() {
           }
           renderItem={({ item }) => {
             const available = stockOf(item);
-            const disabled = available <= 0;
             return (
               <View style={styles.row}>
                 <View style={styles.rowInfo}>
@@ -149,15 +147,15 @@ export default function NewOrder() {
                     {item.name}
                   </Text>
                   <Text style={styles.rowMeta}>
-                    {item.brand?.name ?? item.category?.name ?? 'Sin marca'} · {available} en stock
+                    {item.category?.name ?? 'Sin tipo'} ·{' '}
+                    {available > 0 ? `${available} preparados` : 'se prepara al pedir'}
                   </Text>
                 </View>
                 <Text style={styles.rowPrice}>{formatMoney(item.price)}</Text>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={disabled}
                   onPress={() => addToCart(item)}
-                  style={[styles.add, disabled && styles.addDisabled]}
+                  style={styles.add}
                 >
                   <Text style={styles.addText}>+</Text>
                 </Pressable>

@@ -214,7 +214,8 @@ export default function FamilyDetail() {
   }
 
   const save = useMutation({
-    mutationFn: async () => {
+    /** Devuelve un motivo cuando el artículo se guardó pero no se pudo preparar. */
+    mutationFn: async (): Promise<{ pendingReason?: string }> => {
       const fields = {
         name: form.name.trim(),
         sku: form.sku.trim() || null,
@@ -249,7 +250,15 @@ export default function FamilyDetail() {
           await ensureInventory(supabase, storeId as string, created.id, min);
           await setRecipe(supabase, created.id, recipe);
           if (qty > 0) {
-            await registerProduction(supabase, storeId as string, created.id, qty);
+            // Si faltan insumos NO se pierde el artículo: queda creado con su
+            // fórmula, listo para prepararlo cuando llegue la materia prima.
+            try {
+              await registerProduction(supabase, storeId as string, created.id, qty);
+            } catch (e) {
+              return {
+                pendingReason: e instanceof Error ? e.message : 'Faltan insumos para prepararlo.',
+              };
+            }
           }
         } else {
           await createArticleWithStock(supabase, storeId as string, {
@@ -265,11 +274,18 @@ export default function FamilyDetail() {
         if (isFinished) await setRecipe(supabase, editing.id, recipe);
         await setStockLevels(supabase, storeId as string, editing.id, qty, min);
       }
+      return {};
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       setEditing(null);
       invalidate();
       void queryClient.invalidateQueries({ queryKey: ['supplies'] });
+      if (result.pendingReason) {
+        Alert.alert(
+          'Guardado, pendiente de preparar',
+          `${result.pendingReason}\n\nEl artículo y su fórmula quedaron guardados. Cuando lleguen los insumos podrás prepararlo desde el pedido.`,
+        );
+      }
     },
     onError: (e: unknown) => {
       const msg = e instanceof Error ? e.message : 'No se pudo guardar.';
