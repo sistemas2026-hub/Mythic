@@ -7,7 +7,6 @@ import {
   type ProfileRow,
 } from '@mythic/core';
 import { supabase } from './supabase';
-import { resetLauncherAutoOpen } from './launcher-state';
 
 interface AuthState {
   session: Session | null;
@@ -64,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         await coreSignOut(supabase);
-        resetLauncherAutoOpen();
       },
     }),
     [session, profile, loading],

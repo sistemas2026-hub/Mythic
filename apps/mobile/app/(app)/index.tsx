@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,8 +14,7 @@ import {
 } from '@mythic/core';
 import { useAuth } from '../../src/lib/auth';
 import { supabase } from '../../src/lib/supabase';
-import { claimLauncherAutoOpen } from '../../src/lib/launcher-state';
-import { ModuleLauncher, type ModuleItem } from '../../src/components/ModuleLauncher';
+import { ModuleGrid, type ModuleItem } from '../../src/components/ModuleGrid';
 import { EmptyState } from '../../src/components/ui';
 import { colors, fonts, radius, spacing } from '../../src/theme';
 
@@ -50,9 +49,8 @@ export default function Home() {
   const { profile } = useAuth();
   const router = useRouter();
   const storeId = profile?.store_id ?? null;
-  const [launcherOpen, setLauncherOpen] = useState(() => claimLauncherAutoOpen());
-
   const enabled = !!storeId;
+
   const salesQuery = useQuery({
     queryKey: ['sales', storeId],
     queryFn: () => listSales(supabase, storeId as string, 200),
@@ -172,15 +170,15 @@ export default function Home() {
         </View>
 
         <Pressable
-          onPress={() => router.push('/(app)/pos')}
+          onPress={() => router.push('/(app)/neworder')}
           accessibilityRole="button"
-          style={({ pressed }) => [styles.posCard, pressed && styles.posCardPressed]}
+          style={({ pressed }) => [styles.orderCard, pressed && styles.orderCardPressed]}
         >
           <View>
-            <Text style={styles.posLabel}>PUNTO DE VENTA</Text>
-            <Text style={styles.posTitle}>Abrir caja</Text>
+            <Text style={styles.orderLabel}>PEDIDO</Text>
+            <Text style={styles.orderTitle}>Nuevo pedido</Text>
           </View>
-          <Text style={styles.posArrow}>→</Text>
+          <Text style={styles.orderArrow}>→</Text>
         </Pressable>
 
         {inv && stockAlert(inv.out, inv.low) ? (
@@ -192,29 +190,19 @@ export default function Home() {
             <Text style={styles.alertText}>{stockAlert(inv.out, inv.low)}</Text>
           </Pressable>
         ) : null}
+
+        <View>
+          <Text style={styles.sectionLabel}>MÓDULOS</Text>
+          <ModuleGrid modules={modules} />
+        </View>
       </ScrollView>
-
-      <Pressable
-        onPress={() => setLauncherOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir módulos"
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
-      >
-        <Text style={styles.fabText}>MÓDULOS</Text>
-      </Pressable>
-
-      <ModuleLauncher
-        visible={launcherOpen}
-        onClose={() => setLauncherOpen(false)}
-        modules={modules}
-      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
-  body: { padding: spacing.xl, gap: spacing.xl, paddingBottom: 96 },
+  body: { padding: spacing.xl, gap: spacing.xl, paddingBottom: spacing.xxl },
   greeting: {
     fontFamily: fonts.serif,
     fontSize: 30,
@@ -245,7 +233,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginTop: spacing.sm,
   },
-  posCard: {
+  orderCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -253,10 +241,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.xl,
   },
-  posCardPressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
-  posLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1, color: '#B9B7B2' },
-  posTitle: { fontFamily: fonts.serif, fontSize: 24, color: '#FFFFFF', marginTop: 4 },
-  posArrow: { fontSize: 22, color: '#FFFFFF' },
+  orderCardPressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
+  orderLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1, color: '#B9B7B2' },
+  orderTitle: { fontFamily: fonts.serif, fontSize: 24, color: '#FFFFFF', marginTop: 4 },
+  orderArrow: { fontSize: 22, color: '#FFFFFF' },
   alert: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -266,15 +254,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   alertText: { color: colors.amberInk, fontSize: 13 },
-  fab: {
-    position: 'absolute',
-    right: spacing.xl,
-    bottom: spacing.xl,
-    backgroundColor: colors.ink,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+  sectionLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: colors.muted,
+    marginBottom: spacing.md,
   },
-  fabPressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
-  fabText: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, color: '#FFFFFF' },
 });

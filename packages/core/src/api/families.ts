@@ -92,6 +92,20 @@ export async function createFamily(
   return data as ProductFamilyRow;
 }
 
+/** Una familia por su slug (por ejemplo 'perfumes'). */
+export async function getFamilyBySlug(
+  client: SupabaseClient,
+  slug: string,
+): Promise<ProductFamilyRow | null> {
+  const { data, error } = await client
+    .from('product_families')
+    .select('*')
+    .eq('slug', slug)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ProductFamilyRow | null) ?? null;
+}
+
 /** Una familia por su id. */
 export async function getFamily(
   client: SupabaseClient,

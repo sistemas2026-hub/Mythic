@@ -50,6 +50,15 @@ export const registerSaleSchema = z.object({
 });
 export type RegisterSaleInput = z.infer<typeof registerSaleSchema>;
 
+/** Payload para registrar un pedido (mapea a la función register_order). */
+export const registerOrderSchema = z.object({
+  store_id: z.string().uuid(),
+  customer_id: z.string().uuid().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  items: z.array(cartItemSchema).min(1, 'El pedido necesita al menos un artículo'),
+});
+export type RegisterOrderInput = z.infer<typeof registerOrderSchema>;
+
 /** Ajuste manual de stock. */
 export const stockAdjustmentSchema = z.object({
   store_id: z.string().uuid(),

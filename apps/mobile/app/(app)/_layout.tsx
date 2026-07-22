@@ -39,6 +39,7 @@ export default function AppLayout() {
       {/* Módulos accesibles desde el panel flotante, fuera de la barra de pestañas */}
       <Tabs.Screen name="stats" options={{ href: null }} />
       <Tabs.Screen name="orders" options={{ href: null }} />
+      <Tabs.Screen name="neworder" options={{ href: null }} />
       <Tabs.Screen name="contacts" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
