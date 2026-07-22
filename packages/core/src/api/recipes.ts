@@ -104,6 +104,107 @@ export async function setRecipe(
   if (error) throw error;
 }
 
+/** Lo que hay que agregar de un insumo para preparar un renglón del pedido. */
+export interface PreparationComponent {
+  name: string;
+  unit: ProductUnit;
+  /** Cantidad total a usar (fórmula × unidades a fabricar). */
+  required: number;
+  available: number;
+  enough: boolean;
+}
+
+/** Un perfume del pedido con lo que falta preparar y qué lleva. */
+export interface PreparationLine {
+  product_id: string;
+  product_name: string;
+  /** Unidades pedidas. */
+  quantity: number;
+  /** Unidades ya preparadas que se entregan de una. */
+  on_hand: number;
+  /** Unidades que hay que fabricar. */
+  to_make: number;
+  components: PreparationComponent[];
+}
+
+/**
+ * Guía de preparación de un pedido: por cada perfume, cuánto hay que agregar de
+ * cada componente. Descuenta primero lo que ya está preparado.
+ */
+export async function getPreparationPlan(
+  client: SupabaseClient,
+  orderId: string,
+  storeId: string,
+): Promise<PreparationLine[]> {
+  const { data: itemsData, error: itemsError } = await client
+    .from('order_items')
+    .select('product_id,quantity,product:products(name)')
+    .eq('order_id', orderId);
+  if (itemsError) throw itemsError;
+
+  const items = (itemsData ?? []) as unknown as {
+    product_id: string;
+    quantity: number;
+    product: { name: string } | null;
+  }[];
+  if (items.length === 0) return [];
+
+  const productIds = items.map((i) => i.product_id);
+
+  const [recipesRes, stockRes] = await Promise.all([
+    client
+      .from('product_components')
+      .select(
+        'product_id,component_id,quantity,component:products!product_components_component_id_fkey(name,unit)',
+      )
+      .in('product_id', productIds),
+    client.from('inventory').select('product_id,quantity').eq('store_id', storeId),
+  ]);
+  if (recipesRes.error) throw recipesRes.error;
+  if (stockRes.error) throw stockRes.error;
+
+  const recipes = (recipesRes.data ?? []) as unknown as {
+    product_id: string;
+    component_id: string;
+    quantity: number;
+    component: { name: string; unit: ProductUnit } | null;
+  }[];
+  const stock = new Map(
+    ((stockRes.data ?? []) as { product_id: string; quantity: number }[]).map((s) => [
+      s.product_id,
+      s.quantity,
+    ]),
+  );
+
+  return items.map((item) => {
+    const onHand = Math.min(stock.get(item.product_id) ?? 0, item.quantity);
+    const toMake = item.quantity - onHand;
+
+    const components = recipes
+      .filter((r) => r.product_id === item.product_id)
+      .map((r) => {
+        const required = Math.ceil(r.quantity * toMake);
+        const available = stock.get(r.component_id) ?? 0;
+        return {
+          name: r.component?.name ?? 'Insumo',
+          unit: r.component?.unit ?? ('unidad' as ProductUnit),
+          required,
+          available,
+          enough: available >= required,
+        };
+      });
+
+    return {
+      product_id: item.product_id,
+      product_name: item.product?.name ?? 'Perfume',
+      quantity: item.quantity,
+      on_hand: onHand,
+      to_make: toMake,
+      components,
+    };
+  });
+}
+
 /**
  * Fabrica `units` del producto: descuenta su fórmula del inventario de insumos
  * y suma el producto terminado, dejando kardex de ambos lados.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -21,9 +21,11 @@ import {
   formatMoney,
   getFamily,
   listCategories,
+  listFormulaTemplates,
   listProductsWithStock,
   listRecipe,
   listSupplies,
+  resolveTemplate,
   listTypesWithStock,
   registerProduction,
   setRecipe,
@@ -84,6 +86,10 @@ export default function FamilyDetail() {
   const [showNewType, setShowNewType] = useState(false);
   const [components, setComponents] = useState<ComponentLine[]>([]);
   const [showSupplyPicker, setShowSupplyPicker] = useState(false);
+  /** null = fórmula personalizada; un id = plantilla estándar aplicada. */
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [essenceId, setEssenceId] = useState<string | null>(null);
+  const [showEssencePicker, setShowEssencePicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const familyQuery = useQuery({
@@ -132,6 +138,35 @@ export default function FamilyDetail() {
   });
   const supplies = suppliesQuery.data ?? [];
 
+  const templatesQuery = useQuery({
+    queryKey: ['formula-templates'],
+    queryFn: () => listFormulaTemplates(supabase),
+    enabled: isFinished,
+  });
+  const templates = templatesQuery.data ?? [];
+
+  // Las esencias son lo que define el aroma. Si la familia se llamara distinto,
+  // se ofrecen todos los insumos para no dejar al usuario sin opciones.
+  const essences = useMemo(() => {
+    const onlyEssences = supplies.filter((s) => s.family_name === 'Esencias');
+    return onlyEssences.length > 0 ? onlyEssences : supplies;
+  }, [supplies]);
+  const selectedEssence = essences.find((e) => e.id === essenceId);
+
+  /** Aplica una plantilla: rellena la fórmula resolviendo el hueco de esencia. */
+  function applyTemplate(template: (typeof templates)[number], essence: string | null) {
+    setTemplateId(template.id);
+    setComponents(
+      resolveTemplate(template, essence).map((c) => ({
+        component_id: c.component_id,
+        quantity: String(c.quantity),
+      })),
+    );
+    if (template.volume_ml) {
+      setForm((f) => ({ ...f, volumeMl: String(template.volume_ml) }));
+    }
+  }
+
   // Precarga el formulario al abrir en modo edición.
   useEffect(() => {
     if (editing && editing !== 'new') {
@@ -147,6 +182,8 @@ export default function FamilyDetail() {
         quantity: String(inv?.quantity ?? 0),
         minQuantity: String(inv?.min_quantity ?? 0),
       });
+      setTemplateId(editing.is_custom_formula ? null : editing.formula_template_id);
+      setEssenceId(editing.essence_id);
       // Trae la fórmula guardada del artículo.
       void listRecipe(supabase, editing.id).then((recipe) =>
         setComponents(
@@ -158,7 +195,10 @@ export default function FamilyDetail() {
       const preset = type && type !== UNTYPED ? type : null;
       setForm({ ...EMPTY_FORM, categoryId: preset });
       setComponents([]);
+      setTemplateId(null);
+      setEssenceId(null);
     }
+    setShowEssencePicker(false);
     setError(null);
     setShowNewType(false);
     setNewType('');
@@ -183,6 +223,13 @@ export default function FamilyDetail() {
         volume_ml: Number(form.volumeMl) || null,
         price: Number(form.price) || 0,
         cost: Number(form.cost) || null,
+        ...(isFinished
+          ? {
+              formula_template_id: templateId,
+              essence_id: essenceId,
+              is_custom_formula: templateId === null,
+            }
+          : {}),
       };
       const qty = Number(form.quantity) || 0;
       const min = Number(form.minQuantity) || 0;
@@ -501,10 +548,79 @@ export default function FamilyDetail() {
                     keyboardType="numeric"
                   />
 
-                  <Text style={[styles.fieldLabel, styles.spaced]}>FÓRMULA · POR UNIDAD</Text>
+                  <Text style={[styles.fieldLabel, styles.spaced]}>ESENCIA DE ESTE PERFUME</Text>
+                  <Pressable
+                    onPress={() => setShowEssencePicker((v) => !v)}
+                    style={[styles.input, styles.selectRow]}
+                  >
+                    <Text style={selectedEssence ? styles.selectValue : styles.selectPlaceholder}>
+                      {selectedEssence?.name ?? 'Elegir esencia…'}
+                    </Text>
+                    <Text style={styles.selectCaret}>▾</Text>
+                  </Pressable>
+
+                  {showEssencePicker ? (
+                    <View style={styles.supplyList}>
+                      {essences.map((e) => (
+                        <Pressable
+                          key={e.id}
+                          onPress={() => {
+                            setEssenceId(e.id);
+                            setShowEssencePicker(false);
+                            // Si ya había plantilla elegida, se rellena con esta esencia.
+                            const tpl = templates.find((t) => t.id === templateId);
+                            if (tpl) applyTemplate(tpl, e.id);
+                          }}
+                          style={({ pressed }) => [
+                            styles.supplyOption,
+                            pressed && styles.rowPressed,
+                          ]}
+                        >
+                          <Text style={styles.supplyName}>{e.name}</Text>
+                          <Text style={styles.supplyMeta}>
+                            {e.stock} {e.unit} disponibles
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+
+                  <Text style={[styles.fieldLabel, styles.spaced]}>FÓRMULA</Text>
+                  <View style={styles.chipWrap}>
+                    {templates.map((t) => {
+                      const active = templateId === t.id;
+                      return (
+                        <Pressable
+                          key={t.id}
+                          onPress={() => applyTemplate(t, essenceId)}
+                          style={[styles.chip, active && styles.chipActive]}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {t.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Pressable
+                      onPress={() => setTemplateId(null)}
+                      style={[styles.chip, templateId === null && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, templateId === null && styles.chipTextActive]}>
+                        Personalizada
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {templateId && !essenceId ? (
+                    <Text style={styles.warnHint}>
+                      Elige la esencia para completar la fórmula estándar.
+                    </Text>
+                  ) : null}
+
+                  <Text style={[styles.fieldLabel, styles.spaced]}>COMPONENTES · POR UNIDAD</Text>
                   {components.length === 0 ? (
                     <Text style={styles.recipeHint}>
-                      Agrega la esencia, el alcohol y los adicionales que lleva cada unidad.
+                      Elige una fórmula estándar arriba, o agrega los insumos uno a uno.
                     </Text>
                   ) : null}
 
@@ -776,6 +892,11 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
   },
   recipeHint: { fontSize: 12, color: colors.muted, lineHeight: 17, marginBottom: spacing.sm },
+  warnHint: { fontSize: 12, color: colors.amberInk, marginTop: spacing.sm },
+  selectRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectValue: { fontSize: 15, color: colors.inkSoft },
+  selectPlaceholder: { fontSize: 15, color: colors.muted },
+  selectCaret: { fontSize: 12, color: colors.muted },
   recipeRow: {
     flexDirection: 'row',
     alignItems: 'center',

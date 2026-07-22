@@ -45,6 +45,50 @@ export async function listOrders(
   return (data ?? []) as OrderRow[];
 }
 
+/** Renglón de un pedido con lo que hay que preparar. */
+export interface OrderLineDetail {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  /** Unidades ya preparadas disponibles en la sucursal. */
+  on_hand: number;
+}
+
+/** Renglones de un pedido, con cuántas unidades ya están preparadas. */
+export async function listOrderLines(
+  client: SupabaseClient,
+  orderId: string,
+  storeId: string,
+): Promise<OrderLineDetail[]> {
+  const { data, error } = await client
+    .from('order_items')
+    .select('product_id,quantity,product:products(name,inventory(quantity,store_id))')
+    .eq('order_id', orderId);
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as {
+    product_id: string;
+    quantity: number;
+    product: { name: string; inventory: { quantity: number; store_id: string }[] | null } | null;
+  }[];
+
+  return rows.map((r) => ({
+    product_id: r.product_id,
+    product_name: r.product?.name ?? 'Artículo',
+    quantity: r.quantity,
+    on_hand: r.product?.inventory?.find((i) => i.store_id === storeId)?.quantity ?? 0,
+  }));
+}
+
+/**
+ * Cierra la preparación de un pedido: entrega lo que ya estaba preparado y
+ * fabrica el resto consumiendo la fórmula. Deja el pedido en estado 'listo'.
+ */
+export async function finishPreparation(client: SupabaseClient, orderId: string): Promise<void> {
+  const { error } = await client.rpc('finish_preparation', { p_order_id: orderId });
+  if (error) throw error;
+}
+
 /** Etiquetas legibles para el estado de un pedido. */
 export const orderStatusLabel: Record<OrderStatus, string> = {
   pendiente: 'Pendiente',

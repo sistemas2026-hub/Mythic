@@ -19,6 +19,7 @@ export * from './api/stores';
 export * from './api/families';
 export * from './api/categories';
 export * from './api/recipes';
+export * from './api/templates';
 
 // Utilidades
 export * from './format';

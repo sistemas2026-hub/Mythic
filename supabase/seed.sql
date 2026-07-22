@@ -85,11 +85,49 @@ from (values
   ('Esencia amaderada oriental', 'esencias',      'ESE-AMAD',   'ml',        95),
   ('Esencia cítrica fresca',     'esencias',      'ESE-CITR',   'ml',        82),
   ('Esencia floral almizclada',  'esencias',      'ESE-FLOR',   'ml',       110),
-  ('Alcohol etílico 96%',        'materia-prima', 'MP-ALC96',   'l',      18000),
+  -- El alcohol y el agua se miden en ml aunque se compren por litro: las
+  -- fórmulas trabajan en ml y mezclar unidades daría cantidades absurdas.
+  ('Alcohol etílico 96%',        'materia-prima', 'MP-ALC96',   'ml',        18),
   ('Fijador cosmético',          'materia-prima', 'MP-FIJA',    'ml',        60),
-  ('Agua destilada',             'materia-prima', 'MP-AGUA',    'l',       4200)
+  ('Agua destilada',             'materia-prima', 'MP-AGUA',    'ml',         4)
 ) as i(name, family_slug, sku, unit, cost)
 on conflict (sku) do nothing;
+
+-- Plantillas de fórmula estándar. El renglón de esencia es un hueco: fija la
+-- cantidad, pero cuál esencia se decide en cada perfume.
+insert into public.formula_templates (name, volume_ml) values
+  ('Estándar 100 ml', 100),
+  ('Estándar 50 ml', 50),
+  ('Estándar 30 ml', 30)
+on conflict (name) do nothing;
+
+-- Hueco de esencia de cada plantilla
+insert into public.formula_template_items (template_id, is_essence_slot, quantity)
+select t.id, true, v.esencia
+from (values ('Estándar 100 ml', 30), ('Estándar 50 ml', 15), ('Estándar 30 ml', 9)) as v(name, esencia)
+join public.formula_templates t on t.name = v.name
+where not exists (
+  select 1 from public.formula_template_items i
+  where i.template_id = t.id and i.is_essence_slot
+);
+
+-- Alcohol y fijador de cada plantilla
+insert into public.formula_template_items (template_id, component_id, quantity)
+select t.id, p.id, v.cantidad
+from (values
+  ('Estándar 100 ml', 'MP-ALC96', 65),
+  ('Estándar 100 ml', 'MP-FIJA',   5),
+  ('Estándar 50 ml',  'MP-ALC96', 33),
+  ('Estándar 50 ml',  'MP-FIJA',   2),
+  ('Estándar 30 ml',  'MP-ALC96', 20),
+  ('Estándar 30 ml',  'MP-FIJA',   1)
+) as v(plantilla, sku, cantidad)
+join public.formula_templates t on t.name = v.plantilla
+join public.products p on p.sku = v.sku
+where not exists (
+  select 1 from public.formula_template_items i
+  where i.template_id = t.id and i.component_id = p.id
+);
 
 -- Clasifica los envases de ejemplo en sus tipos
 update public.products p
@@ -114,9 +152,9 @@ from (values
   ('ESE-AMAD',   950, 300),
   ('ESE-CITR',   180, 300),
   ('ESE-FLOR',     0, 250),
-  ('MP-ALC96',    24, 10),
+  ('MP-ALC96', 24000, 10000),
   ('MP-FIJA',    600, 200),
-  ('MP-AGUA',     40, 15)
+  ('MP-AGUA',  40000, 15000)
 ) as q(sku, quantity, min_quantity)
 join public.products pr on pr.sku = q.sku
 on conflict (store_id, product_id) do nothing;

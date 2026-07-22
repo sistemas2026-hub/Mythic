@@ -107,10 +107,16 @@ export default function Home() {
         href: '/(app)/stats',
       },
       {
+        key: 'preparation',
+        label: 'Preparación',
+        metric: ordersQuery.data !== undefined ? String(ordersQuery.data) : '—',
+        subtitle: 'Pedidos por preparar',
+        href: '/(app)/preparation',
+      },
+      {
         key: 'orders',
         label: 'Pedidos',
-        metric: ordersQuery.data !== undefined ? String(ordersQuery.data) : '—',
-        subtitle: 'Pendientes por atender',
+        subtitle: 'Historial de pedidos',
         href: '/(app)/orders',
       },
       {

@@ -76,6 +76,12 @@ export interface ProductRow {
   family_id: string | null;
   unit: ProductUnit;
   is_sellable: boolean;
+  /** Plantilla estándar de la que salió su fórmula, si la hubo. */
+  formula_template_id: string | null;
+  /** Esencia que define su aroma (referencia a otro producto). */
+  essence_id: string | null;
+  /** true cuando la fórmula se editó a mano y ya no sigue la plantilla. */
+  is_custom_formula: boolean;
   description: string | null;
   gender: Gender | null;
   concentration: Concentration | null;
